@@ -1122,6 +1122,11 @@ function renderHistoryList(){
   container.querySelectorAll('[data-hdel]').forEach(b=>b.addEventListener('click', ()=>deletePlan(b.dataset.hdel)));
 }
 
+function circledNum(n){
+  const circled = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳','㉑','㉒','㉓','㉔','㉕','㉖','㉗','㉘','㉙','㉚','㉛','㉜','㉝','㉞','㉟','㊱','㊲','㊳','㊴','㊵','㊶','㊷','㊸','㊹','㊺','㊻','㊼','㊽','㊾','㊿'];
+  return (n>=1 && n<=circled.length) ? circled[n-1] : `(${n})`;
+}
+
 function showHistoryDetail(id){
   const plan = monthlyPlans.find(p=>p.id===id);
   if(!plan) return;
@@ -1151,7 +1156,7 @@ function showHistoryDetail(id){
           <div style="flex:1;"><div class="store-name">${escapeHtml(s.name)}</div><div class="store-meta">${escapeHtml(s.prefecture||'')}</div></div>
         </div>`).join('') || '<div class="empty">店舗未割当</div>';
       return `<div class="card" style="background:#FFFCF3; margin-bottom:10px;">
-        <h3 style="font-size:13px; color:var(--lavender-deep); margin-bottom:8px;">${localIdx+1}日目${g.date?` ・ ${g.date}`:''}</h3>
+        <h3 style="font-size:13px; color:var(--lavender-deep); margin-bottom:8px;">${circledNum(localIdx+1)}${g.date?` ・ ${g.date}`:''}</h3>
         ${rows}
       </div>`;
     }).join('');
