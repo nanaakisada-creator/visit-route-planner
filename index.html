@@ -1152,13 +1152,13 @@ function showHistoryDetail(id){
   document.getElementById('historyDetailTitle').textContent = `${plan.month} ${plan.area}（${plan.visit_days}日間）`;
   const detail = document.getElementById('historyDetail');
 
-  // 担当者ごとにまとめる（登場順、未定は最後）
+  // 担当者ごとにまとめる（登場順、未定は最後）。元のplan.groups内でのインデックスも保持しておく
   const byStaff = {};
   const staffOrder = [];
-  (plan.groups||[]).forEach(g=>{
+  (plan.groups||[]).forEach((g, originalIdx)=>{
     const key = g.staff || '未定';
     if(!byStaff[key]){ byStaff[key] = []; staffOrder.push(key); }
-    byStaff[key].push(g);
+    byStaff[key].push({ ...g, originalIdx });
   });
   staffOrder.sort((a,b)=>{
     if(a==='未定') return 1;
@@ -1175,7 +1175,12 @@ function showHistoryDetail(id){
           <div style="flex:1;"><div class="store-name">${escapeHtml(s.name)}</div><div class="store-meta">${escapeHtml(s.prefecture||'')}</div></div>
         </div>`).join('') || '<div class="empty">店舗未割当</div>';
       return `<div class="card" style="background:#FFFCF3; margin-bottom:10px;">
-        <h3 style="font-size:13px; color:var(--lavender-deep); margin-bottom:8px;">${circledNum(localIdx+1)}${g.date?` ・ ${g.date}`:''}</h3>
+        <div class="row" style="margin-bottom:8px;">
+          <div>
+            <label style="font-size:13px; color:var(--lavender-deep); font-weight:700;">${circledNum(localIdx+1)}</label>
+            <input type="date" class="actualVisitDate" data-plan="${plan.id}" data-idx="${g.originalIdx}" value="${g.date||''}">
+          </div>
+        </div>
         ${rows}
       </div>`;
     }).join('');
@@ -1187,11 +1192,40 @@ function showHistoryDetail(id){
       ${dayCards}
     </div>`;
   }).join('');
+
+  detail.querySelectorAll('.actualVisitDate').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      updateGroupVisitDate(inp.dataset.plan, parseInt(inp.dataset.idx), inp.value);
+    });
+  });
   document.getElementById('historyDetailCard').style.display = 'block';
   document.getElementById('deletePlanBtn').dataset.id = id;
 }
 
 document.getElementById('deletePlanBtn').addEventListener('click', ()=>deletePlan(document.getElementById('deletePlanBtn').dataset.id));
+
+async function updateGroupVisitDate(planId, groupIdx, newDate){
+  if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
+  const plan = monthlyPlans.find(p=>p.id===planId);
+  if(!plan || !plan.groups || !plan.groups[groupIdx]) return;
+
+  plan.groups[groupIdx].date = newDate || null;
+  const { error } = await supabase.from('monthly_plans').update({ groups: plan.groups }).eq('id', planId);
+  if(error){ toast('更新エラー: ' + error.message); return; }
+
+  // 実際に訪店した日として、店舗の最終訪店日も（より新しい方に）更新する
+  if(newDate){
+    for(const s of plan.groups[groupIdx].stores){
+      const store = stores.find(x=>x.id===s.id);
+      const current = store ? store.last_visit_date : null;
+      if(!current || newDate > current){
+        await supabase.from('stores').update({ last_visit_date: newDate }).eq('id', s.id);
+      }
+    }
+    await loadStores();
+  }
+  toast('訪店日を記録しました');
+}
 
 async function deletePlan(id){
   if(!id) return;
