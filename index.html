@@ -1131,7 +1131,7 @@ function renderHistoryList(){
     return `<div class="store-row">
       <div style="flex:1;">
         <div class="store-name">${escapeHtml(p.month)} ・ ${escapeHtml(p.area)}</div>
-        <div class="store-meta">${p.visit_days}日間 ・ ${storeCount}店舗</div>
+        <div class="store-meta">${storeCount}店舗</div>
       </div>
       <button class="icon-btn" data-view="${p.id}">👁️</button>
       <button class="icon-btn" data-hdel="${p.id}">🗑️</button>
@@ -1149,7 +1149,7 @@ function circledNum(n){
 function showHistoryDetail(id){
   const plan = monthlyPlans.find(p=>p.id===id);
   if(!plan) return;
-  document.getElementById('historyDetailTitle').textContent = `${plan.month} ${plan.area}（${plan.visit_days}日間）`;
+  document.getElementById('historyDetailTitle').textContent = `${plan.month} ${plan.area}`;
   const detail = document.getElementById('historyDetail');
 
   // 担当者ごとにまとめる（登場順、未定は最後）。元のplan.groups内でのインデックスも保持しておく
