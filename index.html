@@ -590,6 +590,11 @@ function freqLabel(days){
   if(days <= 30) return '月1回';
   return '2ヶ月に1回';
 }
+function freqBadgeHtml(days){
+  if(days <= 15) return '<span class="badge" style="background:var(--pink-deep); color:#fff;">月2回</span>';
+  if(days <= 30) return '<span class="badge" style="background:#F1E9DC; color:#93805F;">月1回</span>';
+  return '<span class="badge" style="background:var(--mint); color:#2E5C1A;">2ヶ月に1回</span>';
+}
 function renderStoreList(){
   const container = document.getElementById('storeList');
   let filtered = stores.slice();
@@ -598,14 +603,17 @@ function renderStoreList(){
   if(filtered.length===0){ container.innerHTML = '<div class="empty">店舗が登録されていません</div>'; return; }
   container.innerHTML = filtered.map(s=>{
     const p = priorityInfo(s);
-    const label = p.days===null ? '未訪店' : `${p.label}（${freqLabel(s.visit_interval_days||30)}）`;
+    const label = p.days===null ? '未訪店' : p.label;
     return `<div class="store-row">
       <div style="flex:1;">
         <div class="store-name">${escapeHtml(s.name)}</div>
         <div class="store-meta">${escapeHtml(s.prefecture||'')}・${escapeHtml(s.address||'住所未登録')}</div>
-        <div class="store-meta">${label}${(s.lat&&s.lng)?'':' ・ 📍座標未登録'}</div>
+        <div class="store-meta">最終訪店: ${label}${(s.lat&&s.lng)?'':' ・ 📍座標未登録'}</div>
       </div>
-      <span class="badge ${p.badge}">${p.badge==='badge-danger'?'要訪問':(p.badge==='badge-warn'?'そろそろ':'OK')}</span>
+      <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
+        ${freqBadgeHtml(s.visit_interval_days||30)}
+        <span class="badge ${p.badge}">${p.badge==='badge-danger'?'要訪問':(p.badge==='badge-warn'?'そろそろ':'OK')}</span>
+      </div>
       <button class="icon-btn" data-edit="${s.id}">✏️</button>
       <button class="icon-btn" data-visited="${s.id}">✅</button>
       <button class="icon-btn" data-del="${s.id}">🗑️</button>
@@ -914,6 +922,7 @@ function renderCandidateList(endOfMonth){
           <div class="store-name">${escapeHtml(s.name)}</div>
           <div class="store-meta">${escapeHtml(s.prefecture||'')} ・ 目安訪店期限: ${s._due.toISOString().slice(0,10)}</div>
         </div>
+        ${freqBadgeHtml(s.visit_interval_days||30)}
         ${inRoute ? '<span class="badge badge-ok">🔗固定ルート</span>' : ''}
         ${noCoord ? '<span class="badge badge-none">座標なし</span>' : ''}
       </div>`;
