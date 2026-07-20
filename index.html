@@ -927,39 +927,38 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
   const checkedIds = [...document.querySelectorAll('.candCheck:checked')].map(cb=>cb.dataset.id);
   let candidates = state.monthly.candidateAll.filter(s=>checkedIds.includes(s.id));
 
-  // 固定ルートに入っている店舗は、ペアの相方も自動で候補に追加する
+  // 店舗ごとに「所属している固定ルート（複数可）」を調べる
+  // 月2回店舗などは秋定ルート・林ルート両方に入っていて、それぞれ別の訪店として成立する
   const areaRoutes = routes.filter(r=>r.area===state.monthly.area);
-  const storeToRoute = {};
-  areaRoutes.forEach(r=>{ (r.store_ids||[]).forEach(sid=>{ if(!(sid in storeToRoute)) storeToRoute[sid] = r.id; }); });
-
-  const candidateMap = new Map(candidates.map(s=>[s.id, s]));
-  candidates.forEach(s=>{
-    const rid = storeToRoute[s.id];
-    if(!rid) return;
-    const route = areaRoutes.find(r=>r.id===rid);
-    (route.store_ids||[]).forEach(sid=>{
-      if(!candidateMap.has(sid)){
-        const full = state.monthly.candidateAll.find(x=>x.id===sid) || stores.find(x=>x.id===sid);
-        if(full) candidateMap.set(sid, full);
-      }
+  const routesByStore = {};
+  areaRoutes.forEach(r=>{
+    (r.store_ids||[]).forEach(sid=>{
+      if(!routesByStore[sid]) routesByStore[sid] = [];
+      routesByStore[sid].push(r.id);
     });
   });
-  candidates = [...candidateMap.values()];
-  if(candidates.length === 0){ toast('候補店舗がありません'); return; }
 
-  // 固定ルート単位のグループと、それ以外の自由店舗に分ける（座標の有無は問わない）
-  const routedGroups = {};
-  const freeCandidates = [];
+  // 候補の中で固定ルートに触れているものから、そのルートを丸ごと採用する
+  const touchedRouteIds = new Set();
   candidates.forEach(s=>{
-    const rid = storeToRoute[s.id];
-    if(rid){
-      if(!routedGroups[rid]) routedGroups[rid] = [];
-      routedGroups[rid].push(s);
-    } else {
-      freeCandidates.push(s);
-    }
+    (routesByStore[s.id] || []).forEach(rid=>touchedRouteIds.add(rid));
   });
-  const fixedClusters = Object.values(routedGroups);
+
+  const findStore = (sid)=> state.monthly.candidateAll.find(x=>x.id===sid) || stores.find(x=>x.id===sid);
+
+  const fixedClusterData = [...touchedRouteIds].map(rid=>{
+    const route = areaRoutes.find(r=>r.id===rid);
+    return {
+      staff: route.staff || '',
+      members: (route.store_ids||[]).map(sid=>findStore(sid)).filter(Boolean),
+    };
+  });
+  const fixedClusters = fixedClusterData.map(x=>x.members);
+
+  // どの固定ルートにも一切属さない候補だけが「自由店舗」
+  const freeCandidates = candidates.filter(s=>!(routesByStore[s.id] && routesByStore[s.id].length));
+
+  if(fixedClusters.length === 0 && freeCandidates.length === 0){ toast('候補店舗がありません'); return; }
 
   const freeWithCoord = freeCandidates.filter(s=>s.lat && s.lng);
   const freeNoCoord = freeCandidates.filter(s=>!s.lat || !s.lng);
@@ -982,7 +981,7 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
 
   state.monthly.groups = [...fixedClusters, ...freeClusters].map(g=>orderGroup(g).order);
   state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
-  state.monthly.groupStaff = new Array(state.monthly.groups.length).fill('');
+  state.monthly.groupStaff = state.monthly.groups.map((_, i)=> i < fixedClusterData.length ? (fixedClusterData[i].staff || '') : '');
   renderGroupResult();
 });
 
