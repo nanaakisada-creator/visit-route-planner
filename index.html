@@ -1167,7 +1167,12 @@ function showHistoryDetail(id){
   });
 
   detail.innerHTML = staffOrder.map(staffName=>{
-    const staffGroups = byStaff[staffName];
+    const staffGroups = byStaff[staffName].slice().sort((a,b)=>{
+      if(!a.date && !b.date) return 0;
+      if(!a.date) return 1;
+      if(!b.date) return -1;
+      return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+    });
     const storeCount = staffGroups.reduce((s,g)=>s + g.stores.length, 0);
     const dayCards = staffGroups.map((g, localIdx)=>{
       const rows = g.stores.map((s,idx)=>`<div class="store-row">
@@ -1225,6 +1230,7 @@ async function updateGroupVisitDate(planId, groupIdx, newDate){
     await loadStores();
   }
   toast('訪店日を記録しました');
+  showHistoryDetail(planId);
 }
 
 async function deletePlan(id){
