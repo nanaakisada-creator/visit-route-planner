@@ -1101,14 +1101,24 @@ document.getElementById('savePlanBtn').addEventListener('click', async ()=>{
   const { error } = await supabase.from('monthly_plans').upsert(payload, { onConflict: 'area,month' });
   if(error){ toast('保存エラー: ' + error.message); return; }
   toast(`${state.monthly.month}の${state.monthly.area}プランを保存しました（同じ月のプランがあれば上書きされます）`);
+  loadHistory();
 });
 
 async function loadHistory(){
-  if(!supabase){ monthlyPlans = []; renderHistoryList(); return; }
+  if(!supabase){ monthlyPlans = []; renderHistoryList(); updateHistoryTabLabel(); return; }
   const { data, error } = await supabase.from('monthly_plans').select('*').order('month', {ascending:false});
   if(error){ toast('読み込みエラー: ' + error.message); return; }
   monthlyPlans = data || [];
   renderHistoryList();
+  updateHistoryTabLabel();
+}
+
+function updateHistoryTabLabel(){
+  const btn = document.getElementById('subHistoryBtn');
+  if(monthlyPlans.length === 0){ btn.textContent = '訪店ルートを見る'; return; }
+  const latestMonth = monthlyPlans[0].month; // '2026-08' 形式、monthで降順ソート済み
+  const m = parseInt(latestMonth.split('-')[1], 10);
+  btn.textContent = `${m}月訪店ルート`;
 }
 
 function renderHistoryList(){
@@ -1198,6 +1208,7 @@ async function deletePlan(id){
   await loadStores();
   await loadRoutes();
   renderStoreList();
+  await loadHistory();
   const now = new Date();
   const nm = new Date(now.getFullYear(), now.getMonth()+1, 1);
   document.getElementById('planMonth').value = `${nm.getFullYear()}-${String(nm.getMonth()+1).padStart(2,'0')}`;
