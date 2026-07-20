@@ -258,6 +258,7 @@
       <div class="card" id="historyDetailCard" style="display:none;">
         <h2 id="historyDetailTitle"></h2>
         <div id="historyDetail"></div>
+        <button class="btn btn-mint" style="width:100%; margin-top:10px;" id="saveHistoryChangesBtn">変更を保存する</button>
         <button class="btn btn-outline" style="width:100%; margin-top:10px;" id="deletePlanBtn">このプランを削除</button>
       </div>
     </div>
@@ -1264,11 +1265,23 @@ function circledNum(n){
   return (n>=1 && n<=circled.length) ? circled[n-1] : `(${n})`;
 }
 
+let currentDetailPlan = null;
+
 function showHistoryDetail(id){
   const plan = monthlyPlans.find(p=>p.id===id);
   if(!plan) return;
+  currentDetailPlan = plan;
   document.getElementById('historyDetailTitle').textContent = `${plan.month} ${plan.area}`;
+  renderHistoryDetailBody();
+  document.getElementById('historyDetailCard').style.display = 'block';
+  document.getElementById('deletePlanBtn').dataset.id = id;
+}
+
+function renderHistoryDetailBody(){
+  const plan = currentDetailPlan;
+  if(!plan) return;
   const detail = document.getElementById('historyDetail');
+  const areaStores = stores.filter(s=>s.area===plan.area).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
 
   // 担当者ごとにまとめる（登場順、未定は最後）。元のplan.groups内でのインデックスも保持しておく
   const byStaff = {};
@@ -1284,7 +1297,7 @@ function showHistoryDetail(id){
     return 0;
   });
 
-  detail.innerHTML = staffOrder.map(staffName=>{
+  let html = staffOrder.map(staffName=>{
     const staffGroups = byStaff[staffName].slice().sort((a,b)=>{
       if(!a.date && !b.date) return 0;
       if(!a.date) return 1;
@@ -1293,18 +1306,42 @@ function showHistoryDetail(id){
     });
     const storeCount = staffGroups.reduce((s,g)=>s + g.stores.length, 0);
     const dayCards = staffGroups.map((g, localIdx)=>{
-      const rows = g.stores.map((s,idx)=>`<div class="store-row">
-          <div class="num" style="width:26px;height:26px;font-size:12px;">${idx+1}</div>
+      const oi = g.originalIdx;
+      const rows = g.stores.map(s=>{
+        const moveOptions = plan.groups.map((pg,i)=>`<option value="${i}" ${i===oi?'selected':''}>${pg.date || `訪店日${i+1}`}</option>`).join('');
+        return `<div class="store-row">
           <div style="flex:1;"><div class="store-name">${escapeHtml(s.name)}</div><div class="store-meta">${escapeHtml(s.prefecture||'')}</div></div>
-        </div>`).join('') || '<div class="empty">店舗未割当</div>';
+          <select class="editMoveSelect" data-day="${oi}" data-store="${s.id}">${moveOptions}</select>
+          <button class="icon-btn" data-remove-store="1" data-day="${oi}" data-store="${s.id}">🗑️</button>
+        </div>`;
+      }).join('') || '<div class="empty">店舗未割当</div>';
+
+      const addOptions = areaStores.filter(s=>!g.stores.some(gs=>gs.id===s.id))
+        .map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+
       return `<div class="card" style="background:#F6FBFD; margin-bottom:10px;">
         <div class="row" style="margin-bottom:8px;">
           <div>
             <label style="font-size:13px; color:var(--lavender-deep); font-weight:700;">${circledNum(localIdx+1)}</label>
-            <input type="date" class="actualVisitDate" data-plan="${plan.id}" data-idx="${g.originalIdx}" value="${g.date||''}">
+            <input type="date" class="editDateInput" data-day="${oi}" value="${g.date||''}">
+          </div>
+          <div>
+            <label>担当者</label>
+            <select class="editStaffInput" data-day="${oi}">
+              <option value="">未定</option>
+              ${STAFF_LIST.map(name=>`<option value="${name}" ${g.staff===name?'selected':''}>${name}</option>`).join('')}
+            </select>
           </div>
         </div>
         ${rows}
+        <div class="row" style="margin-top:8px;">
+          <select class="editAddStoreSelect" data-day="${oi}" style="flex:2;">
+            <option value="">＋ 店舗を追加...</option>
+            ${addOptions}
+          </select>
+          <button class="btn btn-outline btn-sm" data-add-store-day="${oi}">追加</button>
+        </div>
+        <button class="btn btn-outline btn-sm" style="margin-top:8px; width:100%;" data-remove-day="${oi}">この日を削除</button>
       </div>`;
     }).join('');
     return `<div style="margin-bottom:20px;">
@@ -1316,40 +1353,88 @@ function showHistoryDetail(id){
     </div>`;
   }).join('');
 
-  detail.querySelectorAll('.actualVisitDate').forEach(inp=>{
-    inp.addEventListener('change', ()=>{
-      updateGroupVisitDate(inp.dataset.plan, parseInt(inp.dataset.idx), inp.value);
+  html += `<button class="btn btn-outline" style="width:100%; margin-bottom:6px;" id="addPlanDayBtn">＋ 日を追加</button>`;
+  detail.innerHTML = html;
+
+  detail.querySelectorAll('.editDateInput').forEach(inp=>{
+    inp.addEventListener('change', ()=>{ plan.groups[parseInt(inp.dataset.day)].date = inp.value || null; renderHistoryDetailBody(); });
+  });
+  detail.querySelectorAll('.editStaffInput').forEach(sel=>{
+    sel.addEventListener('change', ()=>{ plan.groups[parseInt(sel.dataset.day)].staff = sel.value || null; renderHistoryDetailBody(); });
+  });
+  detail.querySelectorAll('.editMoveSelect').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      const from = parseInt(sel.dataset.day);
+      const to = parseInt(sel.value);
+      const storeId = sel.dataset.store;
+      if(from === to) return;
+      const idx = plan.groups[from].stores.findIndex(s=>s.id===storeId);
+      if(idx === -1) return;
+      const [s] = plan.groups[from].stores.splice(idx,1);
+      plan.groups[to].stores.push(s);
+      renderHistoryDetailBody();
     });
   });
-  document.getElementById('historyDetailCard').style.display = 'block';
-  document.getElementById('deletePlanBtn').dataset.id = id;
+  detail.querySelectorAll('[data-remove-store]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const day = parseInt(btn.dataset.day);
+      plan.groups[day].stores = plan.groups[day].stores.filter(s=>s.id !== btn.dataset.store);
+      renderHistoryDetailBody();
+    });
+  });
+  detail.querySelectorAll('[data-add-store-day]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const day = parseInt(btn.dataset.addStoreDay);
+      const sel = detail.querySelector(`.editAddStoreSelect[data-day="${day}"]`);
+      const sid = sel.value;
+      if(!sid) return;
+      const full = stores.find(x=>x.id===sid);
+      if(full && !plan.groups[day].stores.some(s=>s.id===sid)){
+        plan.groups[day].stores.push({ id: full.id, name: full.name, prefecture: full.prefecture });
+      }
+      renderHistoryDetailBody();
+    });
+  });
+  detail.querySelectorAll('[data-remove-day]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!confirm('この日を削除しますか？（中の店舗も一緒に削除されます）')) return;
+      plan.groups.splice(parseInt(btn.dataset.removeDay), 1);
+      renderHistoryDetailBody();
+    });
+  });
+  const addDayBtn = document.getElementById('addPlanDayBtn');
+  if(addDayBtn){
+    addDayBtn.addEventListener('click', ()=>{
+      plan.groups.push({ label: `訪店日${plan.groups.length+1}`, date: null, staff: null, stores: [] });
+      renderHistoryDetailBody();
+    });
+  }
 }
 
 document.getElementById('deletePlanBtn').addEventListener('click', ()=>deletePlan(document.getElementById('deletePlanBtn').dataset.id));
 
-async function updateGroupVisitDate(planId, groupIdx, newDate){
+document.getElementById('saveHistoryChangesBtn').addEventListener('click', async ()=>{
   if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
-  const plan = monthlyPlans.find(p=>p.id===planId);
-  if(!plan || !plan.groups || !plan.groups[groupIdx]) return;
+  const plan = currentDetailPlan;
+  if(!plan) return;
+  const { error } = await supabase.from('monthly_plans').update({ groups: plan.groups, visit_days: plan.groups.length }).eq('id', plan.id);
+  if(error){ toast('保存エラー: ' + error.message); return; }
 
-  plan.groups[groupIdx].date = newDate || null;
-  const { error } = await supabase.from('monthly_plans').update({ groups: plan.groups }).eq('id', planId);
-  if(error){ toast('更新エラー: ' + error.message); return; }
-
-  // 実際に訪店した日として、店舗の最終訪店日も（より新しい方に）更新する
-  if(newDate){
-    for(const s of plan.groups[groupIdx].stores){
+  // 日付が入っている店舗は、最終訪店日も（より新しい方に）同期する
+  for(const g of plan.groups){
+    if(!g.date) continue;
+    for(const s of g.stores){
       const store = stores.find(x=>x.id===s.id);
       const current = store ? store.last_visit_date : null;
-      if(!current || newDate > current){
-        await supabase.from('stores').update({ last_visit_date: newDate }).eq('id', s.id);
+      if(!current || g.date > current){
+        await supabase.from('stores').update({ last_visit_date: g.date }).eq('id', s.id);
       }
     }
-    await loadStores();
   }
-  toast('訪店日を記録しました');
-  showHistoryDetail(planId);
-}
+  await loadStores();
+  toast('プランを保存しました');
+  loadHistory();
+});
 
 async function deletePlan(id){
   if(!id) return;
