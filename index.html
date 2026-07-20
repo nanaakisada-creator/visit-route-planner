@@ -8,31 +8,31 @@
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --pink: #FFA23E;
-    --pink-deep: #F2711D;
-    --lavender: #FFD93D;
-    --lavender-deep: #E8A800;
-    --mint: #A9D948;
-    --mint-deep: #6FA82C;
-    --bg: #FFFBF0;
+    --pink: #8FD3E8;
+    --pink-deep: #2E93BE;
+    --lavender: #BEE7F0;
+    --lavender-deep: #5CAFCF;
+    --mint: #A8E0C9;
+    --mint-deep: #4FAE8C;
+    --bg: #F1FAFC;
     --card: #FFFFFF;
-    --ink: #4A3B28;
-    --ink-soft: #93805F;
-    --line: #FCE9C4;
-    --danger: #F0603F;
-    --danger-bg: #FFEDE6;
+    --ink: #2C4A56;
+    --ink-soft: #6E8B95;
+    --line: #DCEFF5;
+    --danger: #E8735F;
+    --danger-bg: #FFEDE9;
     --warn: #F2994A;
     --warn-bg: #FFF3DA;
-    --ok-bg: #EEF9DD;
-    --shadow: 0 4px 20px rgba(230, 140, 30, 0.16);
+    --ok-bg: #E3F7ED;
+    --shadow: 0 4px 20px rgba(60, 140, 180, 0.15);
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
     font-family:'Noto Sans JP', sans-serif;
     background:
-      radial-gradient(circle at 10% 0%, #FFF3D6 0%, transparent 45%),
-      radial-gradient(circle at 90% 10%, #F4FADD 0%, transparent 40%),
+      radial-gradient(circle at 10% 0%, #E1F3F9 0%, transparent 45%),
+      radial-gradient(circle at 90% 10%, #E9F9F1 0%, transparent 40%),
       var(--bg);
     color:var(--ink);
     min-height:100vh;
@@ -136,7 +136,7 @@
   .route-dist{font-size:11px; color:var(--lavender-deep); margin-top:4px; font-weight:600;}
   .empty{text-align:center; color:var(--ink-soft); font-size:13px; padding:24px 0;}
   .total-dist{
-    text-align:center; padding:14px; background:linear-gradient(135deg, #FFF3D6, #F4FADD);
+    text-align:center; padding:14px; background:linear-gradient(135deg, #E1F3F9, #E9F9F1);
     border-radius:14px; margin-top:6px; font-weight:700; color:var(--pink-deep); font-size:14px;
   }
   .icon-btn{background:none; border:none; cursor:pointer; font-size:16px; padding:4px; color:var(--ink-soft);}
@@ -1042,7 +1042,7 @@ function renderGroupResult(){
         </div>
         <select class="moveSelect" data-store="${s.id}" data-group="${gi}">${groupOptions}</select>
       </div>`).join('') || '<div class="empty">店舗未割当</div>';
-    html += `<div class="card" style="background:#FFFCF3; margin-bottom:12px;">
+    html += `<div class="card" style="background:#F6FBFD; margin-bottom:12px;">
       <div class="row">
         <div>
           <label>訪店日${gi+1}（${g.length}件・約${totalKm.toFixed(1)}km）</label>
@@ -1174,7 +1174,7 @@ function showHistoryDetail(id){
           <div class="num" style="width:26px;height:26px;font-size:12px;">${idx+1}</div>
           <div style="flex:1;"><div class="store-name">${escapeHtml(s.name)}</div><div class="store-meta">${escapeHtml(s.prefecture||'')}</div></div>
         </div>`).join('') || '<div class="empty">店舗未割当</div>';
-      return `<div class="card" style="background:#FFFCF3; margin-bottom:10px;">
+      return `<div class="card" style="background:#F6FBFD; margin-bottom:10px;">
         <div class="row" style="margin-bottom:8px;">
           <div>
             <label style="font-size:13px; color:var(--lavender-deep); font-weight:700;">${circledNum(localIdx+1)}</label>
