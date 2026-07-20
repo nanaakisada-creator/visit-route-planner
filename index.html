@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訪店ルートプランナー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pink: #FFA23E;
+    --pink-deep: #F2711D;
+    --lavender: #FFD93D;
+    --lavender-deep: #E8A800;
+    --mint: #A9D948;
+    --mint-deep: #6FA82C;
+    --bg: #FFFBF0;
+    --card: #FFFFFF;
+    --ink: #4A3B28;
+    --ink-soft: #93805F;
+    --line: #FCE9C4;
+    --danger: #F0603F;
+    --danger-bg: #FFEDE6;
+    --warn: #F2994A;
+    --warn-bg: #FFF3DA;
+    --ok-bg: #EEF9DD;
+    --shadow: 0 4px 20px rgba(230, 140, 30, 0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Noto Sans JP', sans-serif;
+    background:
+      radial-gradient(circle at 10% 0%, #FFF3D6 0%, transparent 45%),
+      radial-gradient(circle at 90% 10%, #F4FADD 0%, transparent 40%),
+      var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+  h1,h2,h3{font-family:'Zen Maru Gothic', sans-serif; margin:0;}
+  header{
+    padding:28px 20px 18px;
+    text-align:center;
+  }
+  header h1{
+    font-size:26px;
+    font-weight:900;
+    color:var(--pink-deep);
+    letter-spacing:0.02em;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  header p{margin:6px 0 0; color:var(--ink-soft); font-size:13px;}
+  .config-banner{
+    max-width:640px; margin:0 auto 16px; padding:14px 18px;
+    background:var(--warn-bg); border:1px solid #F5D18C; border-radius:14px;
+    font-size:13px; color:#8A6217; text-align:center;
+  }
+  .config-banner code{background:#fff; padding:2px 6px; border-radius:6px;}
+  nav.tabs{
+    max-width:640px; margin:0 auto 20px; padding:0 20px;
+    display:flex; gap:8px;
+  }
+  nav.tabs button{
+    flex:1; padding:12px; border:none; border-radius:16px;
+    background:var(--card); color:var(--ink-soft); font-weight:700;
+    font-family:'Zen Maru Gothic', sans-serif; font-size:14px;
+    cursor:pointer; box-shadow:var(--shadow); transition:all .15s;
+  }
+  nav.tabs button.active{
+    background:linear-gradient(135deg, var(--pink), var(--lavender));
+    color:#fff;
+  }
+  main{max-width:640px; margin:0 auto; padding:0 20px;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .card{
+    background:var(--card); border-radius:20px; padding:18px 20px;
+    box-shadow:var(--shadow); margin-bottom:16px;
+  }
+  .card h2{font-size:16px; color:var(--pink-deep); margin-bottom:12px; display:flex; align-items:center; gap:6px;}
+  .row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;}
+  .row > *{flex:1; min-width:110px;}
+  label{font-size:12px; color:var(--ink-soft); font-weight:500; display:block; margin-bottom:4px;}
+  select, input, textarea{
+    width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:12px;
+    font-size:14px; font-family:inherit; background:#fff; color:var(--ink);
+  }
+  select:focus, input:focus, textarea:focus{outline:none; border-color:var(--pink-deep);}
+  .btn{
+    padding:11px 18px; border:none; border-radius:14px; font-weight:700;
+    font-family:'Zen Maru Gothic', sans-serif; font-size:14px; cursor:pointer;
+    transition:transform .1s;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:linear-gradient(135deg, var(--pink-deep), var(--lavender-deep)); color:#fff; width:100%;}
+  .btn-mint{background:var(--mint); color:#1E5C42;}
+  .btn-outline{background:#fff; border:1.5px solid var(--line); color:var(--ink-soft);}
+  .btn-sm{padding:6px 12px; font-size:12px; border-radius:10px;}
+  .chip-group{display:flex; gap:8px; flex-wrap:wrap;}
+  .chip{
+    padding:8px 16px; border-radius:20px; border:1.5px solid var(--line);
+    background:#fff; font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .chip.selected{background:var(--lavender); border-color:var(--lavender-deep); color:#fff;}
+  .store-row{
+    display:flex; align-items:center; gap:10px; padding:12px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .store-row:last-child{border-bottom:none;}
+  .store-name{font-weight:700; font-size:14px;}
+  .store-meta{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .badge{
+    font-size:11px; font-weight:700; padding:3px 9px; border-radius:10px; white-space:nowrap;
+  }
+  .badge-danger{background:var(--danger-bg); color:var(--danger);}
+  .badge-warn{background:var(--warn-bg); color:#B8790F;}
+  .badge-ok{background:var(--ok-bg); color:var(--mint-deep);}
+  .badge-none{background:#F1F1F1; color:#999;}
+  .route-item{
+    display:flex; gap:14px; padding:14px 0; position:relative;
+  }
+  .route-item .num{
+    width:32px; height:32px; border-radius:50%;
+    background:linear-gradient(135deg, var(--pink), var(--lavender));
+    color:#fff; font-weight:900; font-family:'Zen Maru Gothic', sans-serif;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    font-size:14px;
+  }
+  .route-item .line{
+    position:absolute; left:15px; top:36px; bottom:-14px; width:2px;
+    background:var(--line);
+  }
+  .route-item:last-child .line{display:none;}
+  .route-body{flex:1; padding-top:4px;}
+  .route-dist{font-size:11px; color:var(--lavender-deep); margin-top:4px; font-weight:600;}
+  .empty{text-align:center; color:var(--ink-soft); font-size:13px; padding:24px 0;}
+  .total-dist{
+    text-align:center; padding:14px; background:linear-gradient(135deg, #FFF3D6, #F4FADD);
+    border-radius:14px; margin-top:6px; font-weight:700; color:var(--pink-deep); font-size:14px;
+  }
+  .icon-btn{background:none; border:none; cursor:pointer; font-size:16px; padding:4px; color:var(--ink-soft);}
+  .modal-bg{
+    display:none; position:fixed; inset:0; background:rgba(74,59,79,0.4);
+    align-items:center; justify-content:center; z-index:100; padding:20px;
+  }
+  .modal-bg.active{display:flex;}
+  .modal{
+    background:#fff; border-radius:20px; padding:24px; width:100%; max-width:440px;
+    max-height:88vh; overflow-y:auto;
+  }
+  .modal h2{margin-bottom:14px; color:var(--pink-deep); font-size:17px;}
+  .modal-actions{display:flex; gap:10px; margin-top:14px;}
+  .modal-actions .btn{flex:1;}
+  .small-note{font-size:11px; color:var(--ink-soft); margin-top:4px;}
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:#fff; padding:11px 22px; border-radius:20px;
+    font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s; z-index:200;
+  }
+  .toast.show{opacity:0.95;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌸 訪店ルートプランナー</h1>
+  <p>優先度と近さから、パッと今日の順番を決める</p>
+</header>
+
+<main>
+  <div id="configBanner" class="config-banner" style="display:none;">
+    Supabaseが未設定です。ファイル冒頭の <code>SUPABASE_URL</code> / <code>SUPABASE_ANON_KEY</code> を設定してください。
+  </div>
+
+  <nav class="tabs">
+    <button id="tabMonthlyBtn" class="active">月間プラン</button>
+    <button id="tabStoreBtn">店舗管理</button>
+  </nav>
+
+  <!-- 月間プラン -->
+  <section id="panelMonthly" class="panel active">
+    <nav class="tabs" style="margin:0 0 14px; padding:0;">
+      <button id="subNewBtn" class="active">新規作成</button>
+      <button id="subHistoryBtn">履歴を見る</button>
+    </nav>
+
+    <div id="monthlyNew">
+      <div class="card">
+        <h2>① 条件を設定</h2>
+        <div class="row">
+          <div>
+            <label>対象月</label>
+            <input type="month" id="planMonth">
+          </div>
+          <div>
+            <label>訪店日数</label>
+            <input type="number" id="planDays" value="8" min="1" max="31">
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>エリア</label>
+            <div class="chip-group" id="planAreaChips">
+              <div class="chip selected" data-area="関西">関西</div>
+              <div class="chip" data-area="九州">九州</div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-outline" style="width:100%;" id="extractBtn">対象店舗を自動抽出する</button>
+      </div>
+
+      <div class="card" id="candidateCard" style="display:none;">
+        <h2>② 対象店舗（チェックで調整可）</h2>
+        <p class="small-note" style="margin-bottom:8px;">サイクル的にその月までに訪店が必要な店舗に自動でチェックが入っています。手動で追加・除外もできます。</p>
+        <div id="candidateList"></div>
+        <button class="btn btn-primary" style="margin-top:12px; width:100%;" id="groupBtn">グループ分けする</button>
+      </div>
+
+      <div class="card" id="groupResultCard" style="display:none;">
+        <h2>③ 日程グループ（プルダウンで日を移動できます）</h2>
+        <div id="groupResult"></div>
+        <button class="btn btn-mint" style="width:100%; margin-top:12px;" id="savePlanBtn">このプランを保存する</button>
+      </div>
+    </div>
+
+    <div id="monthlyHistory" style="display:none;">
+      <div class="card">
+        <h2>保存済みプラン</h2>
+        <div class="row">
+          <div>
+            <label>絞り込み</label>
+            <div class="chip-group" id="histAreaChips">
+              <div class="chip selected" data-area="all">すべて</div>
+              <div class="chip" data-area="関西">関西</div>
+              <div class="chip" data-area="九州">九州</div>
+            </div>
+          </div>
+        </div>
+        <div id="historyList"></div>
+      </div>
+      <div class="card" id="historyDetailCard" style="display:none;">
+        <h2 id="historyDetailTitle"></h2>
+        <div id="historyDetail"></div>
+        <button class="btn btn-outline" style="width:100%; margin-top:10px;" id="deletePlanBtn">このプランを削除</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 店舗管理 -->
+  <section id="panelStore" class="panel">
+    <div class="card">
+      <h2>店舗一覧（優先度順）</h2>
+      <div class="row">
+        <div>
+          <label>絞り込み</label>
+          <div class="chip-group" id="storeAreaChips">
+            <div class="chip selected" data-area="all">すべて</div>
+            <div class="chip" data-area="関西">関西</div>
+            <div class="chip" data-area="九州">九州</div>
+          </div>
+        </div>
+      </div>
+      <div id="storeList"></div>
+    </div>
+    <button class="btn btn-mint" style="width:100%;" id="addStoreBtn">＋ 店舗を追加</button>
+
+    <div class="card" style="margin-top:16px;">
+      <h2>固定ルート管理</h2>
+      <p class="small-note" style="margin-bottom:8px;">いつも同じ組み合わせで回る店舗（高頻度店舗など）を固定ルートとして登録しておくと、月間プラン作成時に自動で同じ日にまとめられます。</p>
+      <div class="row">
+        <div>
+          <label>絞り込み</label>
+          <div class="chip-group" id="routeAreaChips">
+            <div class="chip selected" data-area="関西">関西</div>
+            <div class="chip" data-area="九州">九州</div>
+          </div>
+        </div>
+      </div>
+      <div id="routeList"></div>
+      <button class="btn btn-outline" style="width:100%; margin-top:10px;" id="addRouteBtn">＋ 固定ルートを追加</button>
+    </div>
+  </section>
+</main>
+
+<!-- 固定ルート追加・編集モーダル -->
+<div class="modal-bg" id="routeModalBg">
+  <div class="modal">
+    <h2 id="routeModalTitle">固定ルートを追加</h2>
+    <input type="hidden" id="editRouteId">
+    <div class="row">
+      <div>
+        <label>ルート名</label>
+        <input type="text" id="rName" placeholder="ルート1">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>エリア</label>
+        <select id="rArea">
+          <option value="関西">関西</option>
+          <option value="九州">九州</option>
+        </select>
+      </div>
+      <div>
+        <label>担当者</label>
+        <select id="rStaff">
+          <option value="">未定</option>
+          <option value="秋定🌺">秋定🌺</option>
+          <option value="林🍀">林🍀</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div style="width:100%;">
+        <label>店舗を選択（このエリアの店舗一覧）</label>
+        <div id="rStoreCheckList" style="max-height:260px; overflow-y:auto; border:1.5px solid var(--line); border-radius:12px; padding:10px;"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="cancelRouteBtn">キャンセル</button>
+      <button class="btn btn-primary" id="saveRouteBtn">保存する</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- 店舗追加・編集モーダル -->
+<div class="modal-bg" id="storeModalBg">
+  <div class="modal">
+    <h2 id="storeModalTitle">店舗を追加</h2>
+    <input type="hidden" id="editStoreId">
+    <div class="row">
+      <div>
+        <label>店舗名</label>
+        <input type="text" id="fName" placeholder="梅田店">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>エリア</label>
+        <select id="fArea">
+          <option value="関西">関西</option>
+          <option value="九州">九州</option>
+        </select>
+      </div>
+      <div>
+        <label>都道府県</label>
+        <input type="text" id="fPrefecture" placeholder="大阪府">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>住所</label>
+        <input type="text" id="fAddress" placeholder="大阪市北区...">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Googleマップのリンクを貼ると緯度経度を自動取得</label>
+        <input type="text" id="fMapUrl" placeholder="https://maps.google.com/...@34.69,135.50...">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>緯度</label>
+        <input type="text" id="fLat" placeholder="34.6937">
+      </div>
+      <div>
+        <label>経度</label>
+        <input type="text" id="fLng" placeholder="135.5023">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>最終訪店日</label>
+        <input type="date" id="fLastVisit">
+      </div>
+      <div>
+        <label>訪店頻度</label>
+        <div class="chip-group" id="fFreqChips">
+          <div class="chip" data-freq="15">月2回</div>
+          <div class="chip selected" data-freq="30">月1回</div>
+          <div class="chip" data-freq="60">2ヶ月に1回</div>
+        </div>
+        <input type="hidden" id="fInterval" value="30">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>メモ</label>
+        <textarea id="fNotes" rows="2" placeholder="駐車場は裏手にあり など"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="cancelStoreBtn">キャンセル</button>
+      <button class="btn btn-primary" id="saveStoreBtn">保存する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+// ==== ここを自分のSupabaseプロジェクトの値に書き換えてください ====
+const SUPABASE_URL = 'https://pklnnihgqjbkytdfgvwr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrbG5uaWhncWpia3l0ZGZndndyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNTM4MjEsImV4cCI6MjA5NjcyOTgyMX0.GYDAriZX2ZVERt1HuexRGzLbwgayoKZwvfXdhZBNw5o';
+// ==============================================================
+
+/* 必要なテーブル（Supabase SQL Editorで一度だけ実行）
+create table stores (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  area text not null,
+  prefecture text,
+  address text,
+  map_url text,
+  lat float8,
+  lng float8,
+  last_visit_date date,
+  visit_interval_days int default 30,
+  notes text,
+  updated_at timestamptz default now()
+);
+alter table stores enable row level security;
+create policy "allow all" on stores for all using (true) with check (true);
+
+create table monthly_plans (
+  id uuid primary key default gen_random_uuid(),
+  area text not null,
+  month text not null,
+  visit_days int not null,
+  groups jsonb not null,
+  created_at timestamptz default now(),
+  unique (area, month)
+);
+alter table monthly_plans enable row level security;
+create policy "allow all" on monthly_plans for all using (true) with check (true);
+
+create table routes (
+  id uuid primary key default gen_random_uuid(),
+  area text not null,
+  name text not null,
+  staff text,
+  store_ids uuid[] not null default '{}',
+  created_at timestamptz default now()
+);
+alter table routes enable row level security;
+create policy "allow all" on routes for all using (true) with check (true);
+*/
+
+let supabase = null;
+const configured = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+if (configured) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+  document.getElementById('configBanner').style.display = 'block';
+}
+
+let stores = [];
+let routes = [];
+let routeAreaFilter = '関西';
+let state = {
+  storeAreaFilter: 'all',
+  monthly: {
+    area: '関西',
+    month: '',
+    days: 8,
+    candidateAll: [],
+    groups: [],
+    groupDates: [],
+    groupStaff: [],
+  },
+};
+let monthlyPlans = [];
+let historyAreaFilter = 'all';
+const STAFF_LIST = ['秋定🌺', '林🍀'];
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ---- データ読み込み ----
+async function loadStores(){
+  if(!supabase){ stores = []; return; }
+  const { data, error } = await supabase.from('stores').select('*').order('name');
+  if(error){ toast('読み込みエラー: ' + error.message); return; }
+  stores = data || [];
+}
+
+async function loadRoutes(){
+  if(!supabase){ routes = []; return; }
+  const { data, error } = await supabase.from('routes').select('*').order('name');
+  if(error){ toast('読み込みエラー: ' + error.message); return; }
+  routes = data || [];
+}
+
+// ---- 優先度計算 ----
+function daysSince(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr);
+  const now = new Date();
+  return Math.floor((now - d) / (1000*60*60*24));
+}
+function priorityInfo(store){
+  const days = daysSince(store.last_visit_date);
+  if(days === null) return { ratio: 99, label: '未訪店', badge: 'badge-danger', days: null };
+  const ratio = days / (store.visit_interval_days || 30);
+  let badge = 'badge-ok';
+  if(ratio >= 1.5) badge = 'badge-danger';
+  else if(ratio >= 1) badge = 'badge-warn';
+  return { ratio, label: `${days}日前`, badge, days };
+}
+
+// ---- 距離計算（ハーバサイン）----
+function haversine(lat1, lng1, lat2, lng2){
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ---- Googleマップリンクから緯度経度抽出 ----
+function extractLatLng(url){
+  const m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if(m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  const m2 = url.match(/^\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*$/);
+  if(m2) return { lat: parseFloat(m2[1]), lng: parseFloat(m2[2]) };
+  return null;
+}
+document.getElementById('fMapUrl').addEventListener('input', (e)=>{
+  const res = extractLatLng(e.target.value);
+  if(res){
+    document.getElementById('fLat').value = res.lat;
+    document.getElementById('fLng').value = res.lng;
+  }
+});
+
+// ---- タブ切替 ----
+document.getElementById('tabMonthlyBtn').addEventListener('click', ()=>switchTab('monthly'));
+document.getElementById('tabStoreBtn').addEventListener('click', ()=>switchTab('store'));
+function switchTab(tab){
+  document.getElementById('panelMonthly').classList.toggle('active', tab==='monthly');
+  document.getElementById('panelStore').classList.toggle('active', tab==='store');
+  document.getElementById('tabMonthlyBtn').classList.toggle('active', tab==='monthly');
+  document.getElementById('tabStoreBtn').classList.toggle('active', tab==='store');
+  if(tab==='store'){ renderStoreList(); renderRouteList(); }
+}
+
+// ---- 月間プラン: サブタブ ----
+document.getElementById('subNewBtn').addEventListener('click', ()=>{
+  document.getElementById('monthlyNew').style.display = 'block';
+  document.getElementById('monthlyHistory').style.display = 'none';
+  document.getElementById('subNewBtn').classList.add('active');
+  document.getElementById('subHistoryBtn').classList.remove('active');
+});
+document.getElementById('subHistoryBtn').addEventListener('click', ()=>{
+  document.getElementById('monthlyNew').style.display = 'none';
+  document.getElementById('monthlyHistory').style.display = 'block';
+  document.getElementById('subHistoryBtn').classList.add('active');
+  document.getElementById('subNewBtn').classList.remove('active');
+  loadHistory();
+});
+
+// ---- チップ選択共通処理 ----
+function setupChips(containerId, dataAttr, onChange){
+  const container = document.getElementById(containerId);
+  container.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      container.querySelectorAll('.chip').forEach(c=>c.classList.remove('selected'));
+      chip.classList.add('selected');
+      onChange(chip.dataset[dataAttr]);
+    });
+  });
+}
+setupChips('storeAreaChips', 'area', (v)=>{ state.storeAreaFilter = v; renderStoreList(); });
+setupChips('routeAreaChips', 'area', (v)=>{ routeAreaFilter = v; renderRouteList(); });
+setupChips('planAreaChips', 'area', (v)=>{ state.monthly.area = v; });
+setupChips('histAreaChips', 'area', (v)=>{ historyAreaFilter = v; renderHistoryList(); });
+
+// ---- 店舗管理リスト描画 ----
+function freqLabel(days){
+  if(days <= 15) return '月2回';
+  if(days <= 30) return '月1回';
+  return '2ヶ月に1回';
+}
+function renderStoreList(){
+  const container = document.getElementById('storeList');
+  let filtered = stores.slice();
+  if(state.storeAreaFilter !== 'all') filtered = filtered.filter(s=>s.area===state.storeAreaFilter);
+  filtered.sort((a,b)=>priorityInfo(b).ratio - priorityInfo(a).ratio);
+  if(filtered.length===0){ container.innerHTML = '<div class="empty">店舗が登録されていません</div>'; return; }
+  container.innerHTML = filtered.map(s=>{
+    const p = priorityInfo(s);
+    const label = p.days===null ? '未訪店' : `${p.label}（${freqLabel(s.visit_interval_days||30)}）`;
+    return `<div class="store-row">
+      <div style="flex:1;">
+        <div class="store-name">${escapeHtml(s.name)}</div>
+        <div class="store-meta">${escapeHtml(s.prefecture||'')}・${escapeHtml(s.address||'住所未登録')}</div>
+        <div class="store-meta">${label}${(s.lat&&s.lng)?'':' ・ 📍座標未登録'}</div>
+      </div>
+      <span class="badge ${p.badge}">${p.badge==='badge-danger'?'要訪問':(p.badge==='badge-warn'?'そろそろ':'OK')}</span>
+      <button class="icon-btn" data-edit="${s.id}">✏️</button>
+      <button class="icon-btn" data-visited="${s.id}">✅</button>
+      <button class="icon-btn" data-del="${s.id}">🗑️</button>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openStoreModal(b.dataset.edit)));
+  container.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>deleteStore(b.dataset.del)));
+  container.querySelectorAll('[data-visited]').forEach(b=>b.addEventListener('click', ()=>markVisited(b.dataset.visited)));
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
+// ---- 店舗追加/編集モーダル ----
+document.getElementById('addStoreBtn').addEventListener('click', ()=>openStoreModal(null));
+document.getElementById('cancelStoreBtn').addEventListener('click', closeStoreModal);
+function openStoreModal(id){
+  const modal = document.getElementById('storeModalBg');
+  document.getElementById('editStoreId').value = id || '';
+  if(id){
+    const s = stores.find(x=>x.id===id);
+    document.getElementById('storeModalTitle').textContent = '店舗を編集';
+    document.getElementById('fName').value = s.name || '';
+    document.getElementById('fArea').value = s.area || '関西';
+    document.getElementById('fPrefecture').value = s.prefecture || '';
+    document.getElementById('fAddress').value = s.address || '';
+    document.getElementById('fMapUrl').value = s.map_url || '';
+    document.getElementById('fLat').value = s.lat || '';
+    document.getElementById('fLng').value = s.lng || '';
+    document.getElementById('fLastVisit').value = s.last_visit_date || '';
+    document.getElementById('fInterval').value = s.visit_interval_days || 30;
+    setFreqChips(s.visit_interval_days || 30);
+    document.getElementById('fNotes').value = s.notes || '';
+  } else {
+    document.getElementById('storeModalTitle').textContent = '店舗を追加';
+    ['fName','fPrefecture','fAddress','fMapUrl','fLat','fLng','fLastVisit','fNotes'].forEach(id2=>document.getElementById(id2).value='');
+    document.getElementById('fInterval').value = 30;
+    setFreqChips(30);
+    document.getElementById('fArea').value = state.storeAreaFilter !== 'all' ? state.storeAreaFilter : '関西';
+  }
+  modal.classList.add('active');
+}
+function setFreqChips(days){
+  document.querySelectorAll('#fFreqChips .chip').forEach(c=>{
+    c.classList.toggle('selected', parseInt(c.dataset.freq)===days);
+  });
+}
+document.querySelectorAll('#fFreqChips .chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    document.querySelectorAll('#fFreqChips .chip').forEach(c=>c.classList.remove('selected'));
+    chip.classList.add('selected');
+    document.getElementById('fInterval').value = chip.dataset.freq;
+  });
+});
+function closeStoreModal(){ document.getElementById('storeModalBg').classList.remove('active'); }
+
+document.getElementById('saveStoreBtn').addEventListener('click', async ()=>{
+  if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
+  const id = document.getElementById('editStoreId').value;
+  const payload = {
+    name: document.getElementById('fName').value.trim(),
+    area: document.getElementById('fArea').value,
+    prefecture: document.getElementById('fPrefecture').value.trim(),
+    address: document.getElementById('fAddress').value.trim(),
+    map_url: document.getElementById('fMapUrl').value.trim(),
+    lat: parseFloat(document.getElementById('fLat').value) || null,
+    lng: parseFloat(document.getElementById('fLng').value) || null,
+    last_visit_date: document.getElementById('fLastVisit').value || null,
+    visit_interval_days: parseInt(document.getElementById('fInterval').value) || 30,
+    notes: document.getElementById('fNotes').value.trim(),
+    updated_at: new Date().toISOString(),
+  };
+  if(!payload.name){ toast('店舗名を入力してください'); return; }
+  let error;
+  if(id){ ({error} = await supabase.from('stores').update(payload).eq('id', id)); }
+  else { ({error} = await supabase.from('stores').insert(payload)); }
+  if(error){ toast('保存エラー: ' + error.message); return; }
+  toast('保存しました');
+  closeStoreModal();
+  await loadStores();
+  renderStoreList();
+});
+
+async function deleteStore(id){
+  if(!confirm('この店舗を削除しますか？')) return;
+  const { error } = await supabase.from('stores').delete().eq('id', id);
+  if(error){ toast('削除エラー: ' + error.message); return; }
+  toast('削除しました');
+  await loadStores();
+  renderStoreList();
+}
+
+// ---- 固定ルート管理 ----
+function renderRouteList(){
+  const container = document.getElementById('routeList');
+  const filtered = routes.filter(r=>r.area===routeAreaFilter);
+  if(filtered.length === 0){ container.innerHTML = '<div class="empty">固定ルートがまだありません</div>'; return; }
+  container.innerHTML = filtered.map(r=>{
+    const memberNames = (r.store_ids||[]).map(sid=>{
+      const s = stores.find(x=>x.id===sid);
+      return s ? s.name : '（削除済み店舗）';
+    });
+    return `<div class="store-row">
+      <div style="flex:1;">
+        <div class="store-name">${escapeHtml(r.name)}${r.staff?` <span style="color:var(--lavender-deep); font-size:12px; font-weight:600;">(${escapeHtml(r.staff)})</span>`:''}</div>
+        <div class="store-meta">${memberNames.map(escapeHtml).join('・') || '店舗未設定'}</div>
+      </div>
+      <button class="icon-btn" data-redit="${r.id}">✏️</button>
+      <button class="icon-btn" data-rdel="${r.id}">🗑️</button>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('[data-redit]').forEach(b=>b.addEventListener('click', ()=>openRouteModal(b.dataset.redit)));
+  container.querySelectorAll('[data-rdel]').forEach(b=>b.addEventListener('click', ()=>deleteRoute(b.dataset.rdel)));
+}
+
+document.getElementById('addRouteBtn').addEventListener('click', ()=>openRouteModal(null));
+document.getElementById('cancelRouteBtn').addEventListener('click', ()=>{
+  document.getElementById('routeModalBg').classList.remove('active');
+});
+
+function openRouteModal(id){
+  document.getElementById('editRouteId').value = id || '';
+  const area = id ? routes.find(r=>r.id===id).area : routeAreaFilter;
+  document.getElementById('rArea').value = area;
+  document.getElementById('rName').value = id ? routes.find(r=>r.id===id).name : '';
+  document.getElementById('rStaff').value = id ? (routes.find(r=>r.id===id).staff || '') : '';
+  document.getElementById('routeModalTitle').textContent = id ? '固定ルートを編集' : '固定ルートを追加';
+  renderRouteStoreCheckList(area, id ? routes.find(r=>r.id===id).store_ids : []);
+  document.getElementById('routeModalBg').classList.add('active');
+}
+
+function renderRouteStoreCheckList(area, selectedIds){
+  const container = document.getElementById('rStoreCheckList');
+  const areaStores = stores.filter(s=>s.area===area).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  if(areaStores.length === 0){ container.innerHTML = '<div class="empty">店舗がありません</div>'; return; }
+  container.innerHTML = areaStores.map(s=>`
+    <label style="display:flex; align-items:center; gap:8px; padding:6px 0; font-size:13px;">
+      <input type="checkbox" class="rStoreCheck" value="${s.id}" style="width:auto;" ${selectedIds.includes(s.id)?'checked':''}>
+      ${escapeHtml(s.name)}
+    </label>`).join('');
+}
+
+document.getElementById('rArea').addEventListener('change', ()=>{
+  const id = document.getElementById('editRouteId').value;
+  const selectedIds = id ? routes.find(r=>r.id===id)?.store_ids || [] : [];
+  renderRouteStoreCheckList(document.getElementById('rArea').value, selectedIds);
+});
+
+document.getElementById('saveRouteBtn').addEventListener('click', async ()=>{
+  if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
+  const id = document.getElementById('editRouteId').value;
+  const name = document.getElementById('rName').value.trim();
+  const area = document.getElementById('rArea').value;
+  const staff = document.getElementById('rStaff').value;
+  const storeIds = [...document.querySelectorAll('.rStoreCheck:checked')].map(cb=>cb.value);
+  if(!name){ toast('ルート名を入力してください'); return; }
+  if(storeIds.length < 1){ toast('店舗を1つ以上選択してください'); return; }
+  const payload = { name, area, staff: staff || null, store_ids: storeIds };
+  let error;
+  if(id){ ({error} = await supabase.from('routes').update(payload).eq('id', id)); }
+  else { ({error} = await supabase.from('routes').insert(payload)); }
+  if(error){ toast('保存エラー: ' + error.message); return; }
+  toast('固定ルートを保存しました');
+  document.getElementById('routeModalBg').classList.remove('active');
+  await loadRoutes();
+  renderRouteList();
+});
+
+async function deleteRoute(id){
+  if(!confirm('この固定ルートを削除しますか？')) return;
+  const { error } = await supabase.from('routes').delete().eq('id', id);
+  if(error){ toast('削除エラー: ' + error.message); return; }
+  toast('削除しました');
+  await loadRoutes();
+  renderRouteList();
+}
+
+async function markVisited(id){
+  const today = new Date().toISOString().slice(0,10);
+  const { error } = await supabase.from('stores').update({ last_visit_date: today }).eq('id', id);
+  if(error){ toast('更新エラー: ' + error.message); return; }
+  toast('訪店完了にしました');
+  await loadStores();
+  renderStoreList();
+}
+
+// ================= 月間プラン =================
+
+function computeDueDate(store){
+  if(!store.last_visit_date) return new Date(); // 未訪店は即・要対応扱い
+  const d = new Date(store.last_visit_date);
+  d.setDate(d.getDate() + (store.visit_interval_days || 30));
+  return d;
+}
+
+// k-means風のクラスタリングでエリア内店舗を訪店日数分にグループ分け
+function kmeansCluster(items, k){
+  k = Math.max(1, Math.min(k, items.length || 1));
+  if(items.length === 0) return Array.from({length:k}, ()=>[]);
+  const sorted = items.slice().sort((a,b)=>a.lng-b.lng);
+  let centroids = [];
+  for(let i=0;i<k;i++){
+    const idx = k===1 ? 0 : Math.floor(i*(sorted.length-1)/(k-1));
+    centroids.push({ lat: sorted[idx].lat, lng: sorted[idx].lng });
+  }
+  let assignment = new Array(items.length).fill(0);
+  for(let iter=0; iter<10; iter++){
+    for(let i=0;i<items.length;i++){
+      let best=0, bestDist=Infinity;
+      for(let c=0;c<k;c++){
+        const d = haversine(items[i].lat, items[i].lng, centroids[c].lat, centroids[c].lng);
+        if(d < bestDist){ bestDist = d; best = c; }
+      }
+      assignment[i] = best;
+    }
+    for(let c=0;c<k;c++){
+      const assigned = items.filter((_,i)=>assignment[i]===c);
+      if(assigned.length){
+        centroids[c] = {
+          lat: assigned.reduce((s,it)=>s+it.lat,0)/assigned.length,
+          lng: assigned.reduce((s,it)=>s+it.lng,0)/assigned.length,
+        };
+      }
+    }
+  }
+  const groups = Array.from({length:k}, ()=>[]);
+  items.forEach((it,i)=>groups[assignment[i]].push(it));
+  return groups;
+}
+
+// グループ内を最近傍法で並べ替え
+function orderGroup(group){
+  if(group.length === 0) return { order: [], dists: [] };
+  if(group.length === 1) return { order: group.slice(), dists: [0] };
+  const hasAllCoords = group.every(s=>s.lat && s.lng);
+  if(!hasAllCoords){
+    // 座標が無い店舗が混ざっている場合は並び替えせずそのまま返す
+    return { order: group.slice(), dists: group.map(()=>0) };
+  }
+  const remaining = group.slice().sort((a,b)=>a.lng-b.lng);
+  const start = remaining.shift();
+  let route = [start];
+  let dists = [0];
+  let cur = start;
+  while(remaining.length){
+    let bestIdx=0, bestDist=Infinity;
+    remaining.forEach((s,i)=>{
+      const d = haversine(cur.lat, cur.lng, s.lat, s.lng);
+      if(d < bestDist){ bestDist = d; bestIdx = i; }
+    });
+    const next = remaining.splice(bestIdx,1)[0];
+    dists.push(bestDist);
+    route.push(next);
+    cur = next;
+  }
+  return { order: route, dists };
+}
+
+// 座標が無い店舗向けの簡易グルーピング（都道府県ごとにだいたい2店舗ずつ）
+function fallbackClusterNoCoord(items, sizePerGroup){
+  const byPref = {};
+  items.forEach(s=>{
+    const key = s.prefecture || '未設定';
+    if(!byPref[key]) byPref[key] = [];
+    byPref[key].push(s);
+  });
+  const groups = [];
+  Object.values(byPref).forEach(list=>{
+    for(let i=0; i<list.length; i+=sizePerGroup){
+      groups.push(list.slice(i, i+sizePerGroup));
+    }
+  });
+  return groups;
+}
+
+document.getElementById('extractBtn').addEventListener('click', ()=>{
+  const monthVal = document.getElementById('planMonth').value;
+  if(!monthVal){ toast('対象月を選択してください'); return; }
+  const [y,m] = monthVal.split('-').map(Number);
+  const endOfMonth = new Date(y, m, 0);
+  state.monthly.month = monthVal;
+  state.monthly.days = parseInt(document.getElementById('planDays').value) || 8;
+  const areaStores = stores.filter(s=>s.area===state.monthly.area);
+  const withDue = areaStores.map(s=>({...s, _due: computeDueDate(s)}));
+  withDue.sort((a,b)=>a._due-b._due);
+  state.monthly.candidateAll = withDue;
+  renderCandidateList(endOfMonth);
+});
+
+function renderCandidateList(endOfMonth){
+  const container = document.getElementById('candidateList');
+  const areaRouteStoreIds = new Set(routes.filter(r=>r.area===state.monthly.area).flatMap(r=>r.store_ids||[]));
+  if(state.monthly.candidateAll.length === 0){
+    container.innerHTML = '<div class="empty">このエリアの店舗がありません</div>';
+  } else {
+    container.innerHTML = state.monthly.candidateAll.map(s=>{
+      const due = s._due <= endOfMonth;
+      const noCoord = !s.lat || !s.lng;
+      const inRoute = areaRouteStoreIds.has(s.id);
+      return `<div class="store-row">
+        <input type="checkbox" class="candCheck" data-id="${s.id}" ${due?'checked':''} style="width:auto;">
+        <div style="flex:1;">
+          <div class="store-name">${escapeHtml(s.name)}</div>
+          <div class="store-meta">${escapeHtml(s.prefecture||'')} ・ 目安訪店期限: ${s._due.toISOString().slice(0,10)}</div>
+        </div>
+        ${inRoute ? '<span class="badge badge-ok">🔗固定ルート</span>' : ''}
+        ${noCoord ? '<span class="badge badge-none">座標なし</span>' : ''}
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('candidateCard').style.display = 'block';
+  document.getElementById('groupResultCard').style.display = 'none';
+}
+
+document.getElementById('groupBtn').addEventListener('click', ()=>{
+  const checkedIds = [...document.querySelectorAll('.candCheck:checked')].map(cb=>cb.dataset.id);
+  let candidates = state.monthly.candidateAll.filter(s=>checkedIds.includes(s.id));
+
+  // 固定ルートに入っている店舗は、ペアの相方も自動で候補に追加する
+  const areaRoutes = routes.filter(r=>r.area===state.monthly.area);
+  const storeToRoute = {};
+  areaRoutes.forEach(r=>{ (r.store_ids||[]).forEach(sid=>{ if(!(sid in storeToRoute)) storeToRoute[sid] = r.id; }); });
+
+  const candidateMap = new Map(candidates.map(s=>[s.id, s]));
+  candidates.forEach(s=>{
+    const rid = storeToRoute[s.id];
+    if(!rid) return;
+    const route = areaRoutes.find(r=>r.id===rid);
+    (route.store_ids||[]).forEach(sid=>{
+      if(!candidateMap.has(sid)){
+        const full = state.monthly.candidateAll.find(x=>x.id===sid) || stores.find(x=>x.id===sid);
+        if(full) candidateMap.set(sid, full);
+      }
+    });
+  });
+  candidates = [...candidateMap.values()];
+  if(candidates.length === 0){ toast('候補店舗がありません'); return; }
+
+  // 固定ルート単位のグループと、それ以外の自由店舗に分ける（座標の有無は問わない）
+  const routedGroups = {};
+  const freeCandidates = [];
+  candidates.forEach(s=>{
+    const rid = storeToRoute[s.id];
+    if(rid){
+      if(!routedGroups[rid]) routedGroups[rid] = [];
+      routedGroups[rid].push(s);
+    } else {
+      freeCandidates.push(s);
+    }
+  });
+  const fixedClusters = Object.values(routedGroups);
+
+  const freeWithCoord = freeCandidates.filter(s=>s.lat && s.lng);
+  const freeNoCoord = freeCandidates.filter(s=>!s.lat || !s.lng);
+
+  const k = state.monthly.days;
+  const remaining = k - fixedClusters.length;
+  let freeClusters = [];
+  if(freeWithCoord.length){
+    if(remaining > 0){
+      freeClusters = kmeansCluster(freeWithCoord, Math.min(remaining, freeWithCoord.length));
+    } else {
+      freeClusters = [freeWithCoord];
+    }
+  }
+  // 座標未登録の自由店舗は、都道府県ごとにだいたい2店舗ずつのグループとして追加
+  if(freeNoCoord.length){
+    freeClusters = [...freeClusters, ...fallbackClusterNoCoord(freeNoCoord, 2)];
+    toast(`座標未登録の${freeNoCoord.length}店舗は都道府県ベースで仮グループ化しました。Googleマップのリンクを登録すると近さで並べ替えられます`);
+  }
+
+  state.monthly.groups = [...fixedClusters, ...freeClusters].map(g=>orderGroup(g).order);
+  state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
+  state.monthly.groupStaff = new Array(state.monthly.groups.length).fill('');
+  renderGroupResult();
+});
+
+function moveStoreBetweenGroups(storeId, fromIdx, toIdx){
+  const fromGroup = state.monthly.groups[fromIdx];
+  const idx = fromGroup.findIndex(s=>s.id===storeId);
+  if(idx === -1) return;
+  const [s] = fromGroup.splice(idx,1);
+  state.monthly.groups[toIdx].push(s);
+  state.monthly.groups[fromIdx] = orderGroup(state.monthly.groups[fromIdx]).order;
+  state.monthly.groups[toIdx] = orderGroup(state.monthly.groups[toIdx]).order;
+  renderGroupResult();
+}
+
+function renderGroupResult(){
+  const container = document.getElementById('groupResult');
+  const groupCount = state.monthly.groups.length;
+
+  // 担当者ごとに表示をまとめる（データのインデックスgiはそのまま保持）
+  const indices = [...Array(groupCount).keys()];
+  const staffKey = (gi)=> state.monthly.groupStaff[gi] || '未定';
+  indices.sort((a,b)=>{
+    const sa = staffKey(a), sb = staffKey(b);
+    if(sa === sb) return a - b;
+    if(sa === '未定') return 1;
+    if(sb === '未定') return -1;
+    return sa < sb ? -1 : 1;
+  });
+
+  let html = '';
+  let lastStaff = null;
+  indices.forEach(gi=>{
+    const g = state.monthly.groups[gi];
+    const currentStaff = staffKey(gi);
+    if(currentStaff !== lastStaff){
+      if(lastStaff !== null) html += '</div>'; // 前セクションを閉じる
+      html += `<div style="margin-bottom:18px;">
+        <div style="padding:6px 4px; border-bottom:2px solid var(--pink); margin-bottom:10px; font-size:15px; font-weight:700; color:var(--pink-deep); font-family:'Zen Maru Gothic', sans-serif;">${escapeHtml(currentStaff)}</div>`;
+      lastStaff = currentStaff;
+    }
+    const dists = orderGroup(g).dists;
+    const totalKm = dists.reduce((a,b)=>a+b,0);
+    const groupOptions = Array.from({length:groupCount}, (_,i)=>`<option value="${i}" ${i===gi?'selected':''}>訪店日${i+1}</option>`).join('');
+    const rows = g.map((s,idx)=>`<div class="store-row">
+        <div class="num" style="width:26px;height:26px;font-size:12px;">${idx+1}</div>
+        <div style="flex:1;">
+          <div class="store-name">${escapeHtml(s.name)}</div>
+          <div class="store-meta">${escapeHtml(s.prefecture||'')}</div>
+        </div>
+        <select class="moveSelect" data-store="${s.id}" data-group="${gi}">${groupOptions}</select>
+      </div>`).join('') || '<div class="empty">店舗未割当</div>';
+    html += `<div class="card" style="background:#FFFCF3; margin-bottom:12px;">
+      <div class="row">
+        <div>
+          <label>訪店日${gi+1}（${g.length}件・約${totalKm.toFixed(1)}km）</label>
+          <input type="date" class="groupDateInput" data-group="${gi}" value="${state.monthly.groupDates[gi]||''}">
+        </div>
+        <div>
+          <label>担当者</label>
+          <select class="groupStaffInput" data-group="${gi}">
+            <option value="">未定</option>
+            ${STAFF_LIST.map(name=>`<option value="${name}" ${state.monthly.groupStaff[gi]===name?'selected':''}>${name}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      ${rows}
+    </div>`;
+  });
+  if(lastStaff !== null) html += '</div>';
+  container.innerHTML = html;
+
+  container.querySelectorAll('.moveSelect').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      const storeId = sel.dataset.store;
+      const from = parseInt(sel.dataset.group);
+      const to = parseInt(sel.value);
+      if(from !== to) moveStoreBetweenGroups(storeId, from, to);
+    });
+  });
+  container.querySelectorAll('.groupDateInput').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      state.monthly.groupDates[parseInt(inp.dataset.group)] = inp.value;
+    });
+  });
+  container.querySelectorAll('.groupStaffInput').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      state.monthly.groupStaff[parseInt(sel.dataset.group)] = sel.value;
+      renderGroupResult();
+    });
+  });
+  document.getElementById('groupResultCard').style.display = 'block';
+}
+
+document.getElementById('savePlanBtn').addEventListener('click', async ()=>{
+  if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
+  if(state.monthly.groups.length === 0){ toast('先にグループ分けしてください'); return; }
+  const payload = {
+    area: state.monthly.area,
+    month: state.monthly.month,
+    visit_days: state.monthly.days,
+    groups: state.monthly.groups.map((g,i)=>({
+      label: `訪店日${i+1}`,
+      date: state.monthly.groupDates[i] || null,
+      staff: state.monthly.groupStaff[i] || null,
+      stores: g.map(s=>({ id: s.id, name: s.name, prefecture: s.prefecture, lat: s.lat, lng: s.lng })),
+    })),
+  };
+  const { error } = await supabase.from('monthly_plans').upsert(payload, { onConflict: 'area,month' });
+  if(error){ toast('保存エラー: ' + error.message); return; }
+  toast(`${state.monthly.month}の${state.monthly.area}プランを保存しました（同じ月のプランがあれば上書きされます）`);
+});
+
+async function loadHistory(){
+  if(!supabase){ monthlyPlans = []; renderHistoryList(); return; }
+  const { data, error } = await supabase.from('monthly_plans').select('*').order('month', {ascending:false});
+  if(error){ toast('読み込みエラー: ' + error.message); return; }
+  monthlyPlans = data || [];
+  renderHistoryList();
+}
+
+function renderHistoryList(){
+  const container = document.getElementById('historyList');
+  let filtered = monthlyPlans.slice();
+  if(historyAreaFilter !== 'all') filtered = filtered.filter(p=>p.area===historyAreaFilter);
+  if(filtered.length === 0){ container.innerHTML = '<div class="empty">保存されたプランがありません</div>'; return; }
+  container.innerHTML = filtered.map(p=>{
+    const storeCount = (p.groups||[]).reduce((s,g)=>s+g.stores.length,0);
+    return `<div class="store-row">
+      <div style="flex:1;">
+        <div class="store-name">${escapeHtml(p.month)} ・ ${escapeHtml(p.area)}</div>
+        <div class="store-meta">${p.visit_days}日間 ・ ${storeCount}店舗</div>
+      </div>
+      <button class="icon-btn" data-view="${p.id}">👁️</button>
+      <button class="icon-btn" data-hdel="${p.id}">🗑️</button>
+    </div>`;
+  }).join('');
+  container.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click', ()=>showHistoryDetail(b.dataset.view)));
+  container.querySelectorAll('[data-hdel]').forEach(b=>b.addEventListener('click', ()=>deletePlan(b.dataset.hdel)));
+}
+
+function showHistoryDetail(id){
+  const plan = monthlyPlans.find(p=>p.id===id);
+  if(!plan) return;
+  document.getElementById('historyDetailTitle').textContent = `${plan.month} ${plan.area}（${plan.visit_days}日間）`;
+  const detail = document.getElementById('historyDetail');
+
+  // 担当者ごとにまとめる（登場順、未定は最後）
+  const byStaff = {};
+  const staffOrder = [];
+  (plan.groups||[]).forEach(g=>{
+    const key = g.staff || '未定';
+    if(!byStaff[key]){ byStaff[key] = []; staffOrder.push(key); }
+    byStaff[key].push(g);
+  });
+  staffOrder.sort((a,b)=>{
+    if(a==='未定') return 1;
+    if(b==='未定') return -1;
+    return 0;
+  });
+
+  detail.innerHTML = staffOrder.map(staffName=>{
+    const staffGroups = byStaff[staffName];
+    const storeCount = staffGroups.reduce((s,g)=>s + g.stores.length, 0);
+    const dayCards = staffGroups.map((g, localIdx)=>{
+      const rows = g.stores.map((s,idx)=>`<div class="store-row">
+          <div class="num" style="width:26px;height:26px;font-size:12px;">${idx+1}</div>
+          <div style="flex:1;"><div class="store-name">${escapeHtml(s.name)}</div><div class="store-meta">${escapeHtml(s.prefecture||'')}</div></div>
+        </div>`).join('') || '<div class="empty">店舗未割当</div>';
+      return `<div class="card" style="background:#FFFCF3; margin-bottom:10px;">
+        <h3 style="font-size:13px; color:var(--lavender-deep); margin-bottom:8px;">${localIdx+1}日目${g.date?` ・ ${g.date}`:''}</h3>
+        ${rows}
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:20px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 4px; border-bottom:2px solid var(--pink); margin-bottom:10px;">
+        <h2 style="font-size:16px; color:var(--pink-deep);">${escapeHtml(staffName)}</h2>
+        <span class="badge badge-ok">${staffGroups.length}日間・${storeCount}店舗</span>
+      </div>
+      ${dayCards}
+    </div>`;
+  }).join('');
+  document.getElementById('historyDetailCard').style.display = 'block';
+  document.getElementById('deletePlanBtn').dataset.id = id;
+}
+
+document.getElementById('deletePlanBtn').addEventListener('click', ()=>deletePlan(document.getElementById('deletePlanBtn').dataset.id));
+
+async function deletePlan(id){
+  if(!id) return;
+  if(!confirm('このプランを削除しますか？')) return;
+  const { error } = await supabase.from('monthly_plans').delete().eq('id', id);
+  if(error){ toast('削除エラー: ' + error.message); return; }
+  toast('削除しました');
+  document.getElementById('historyDetailCard').style.display = 'none';
+  loadHistory();
+}
+
+// ---- 初期化 ----
+(async function init(){
+  await loadStores();
+  await loadRoutes();
+  renderStoreList();
+  const now = new Date();
+  const nm = new Date(now.getFullYear(), now.getMonth()+1, 1);
+  document.getElementById('planMonth').value = `${nm.getFullYear()}-${String(nm.getMonth()+1).padStart(2,'0')}`;
+})();
+</script>
+</body>
+</html>
