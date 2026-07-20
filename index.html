@@ -182,6 +182,7 @@
   <section id="panelMonthly" class="panel active">
     <nav class="tabs" style="margin:0 0 14px; padding:0;">
       <button id="subNewBtn" class="active">新規作成</button>
+      <button id="subKyushuBtn">九州(手動)</button>
       <button id="subHistoryBtn">履歴を見る</button>
     </nav>
 
@@ -222,6 +223,21 @@
         <div id="groupResult"></div>
         <button class="btn btn-mint" style="width:100%; margin-top:12px;" id="savePlanBtn">このプランを保存する</button>
       </div>
+    </div>
+
+    <div id="monthlyKyushu" style="display:none;">
+      <div class="card">
+        <h2>九州プランを手動作成</h2>
+        <div class="row">
+          <div>
+            <label>対象月</label>
+            <input type="month" id="kyushuMonth">
+          </div>
+        </div>
+        <div id="kyushuDaysList"></div>
+        <button class="btn btn-outline" style="width:100%; margin-top:10px;" id="addKyushuDayBtn">＋ 日を追加</button>
+      </div>
+      <button class="btn btn-mint" style="width:100%;" id="saveKyushuPlanBtn">このプランを保存する</button>
     </div>
 
     <div id="monthlyHistory" style="display:none;">
@@ -473,6 +489,9 @@ let state = {
     groupDates: [],
     groupStaff: [],
   },
+  kyushu: {
+    days: [], // { date, staff, storeIds: [] }
+  },
 };
 let monthlyPlans = [];
 let historyAreaFilter = 'all';
@@ -556,15 +575,29 @@ function switchTab(tab){
 // ---- 月間プラン: サブタブ ----
 document.getElementById('subNewBtn').addEventListener('click', ()=>{
   document.getElementById('monthlyNew').style.display = 'block';
+  document.getElementById('monthlyKyushu').style.display = 'none';
   document.getElementById('monthlyHistory').style.display = 'none';
   document.getElementById('subNewBtn').classList.add('active');
+  document.getElementById('subKyushuBtn').classList.remove('active');
   document.getElementById('subHistoryBtn').classList.remove('active');
+});
+document.getElementById('subKyushuBtn').addEventListener('click', ()=>{
+  document.getElementById('monthlyNew').style.display = 'none';
+  document.getElementById('monthlyKyushu').style.display = 'block';
+  document.getElementById('monthlyHistory').style.display = 'none';
+  document.getElementById('subKyushuBtn').classList.add('active');
+  document.getElementById('subNewBtn').classList.remove('active');
+  document.getElementById('subHistoryBtn').classList.remove('active');
+  if(state.kyushu.days.length === 0) addKyushuDay();
+  renderKyushuDays();
 });
 document.getElementById('subHistoryBtn').addEventListener('click', ()=>{
   document.getElementById('monthlyNew').style.display = 'none';
+  document.getElementById('monthlyKyushu').style.display = 'none';
   document.getElementById('monthlyHistory').style.display = 'block';
   document.getElementById('subHistoryBtn').classList.add('active');
   document.getElementById('subNewBtn').classList.remove('active');
+  document.getElementById('subKyushuBtn').classList.remove('active');
   loadHistory();
 });
 
@@ -1104,6 +1137,91 @@ document.getElementById('savePlanBtn').addEventListener('click', async ()=>{
   loadHistory();
 });
 
+// ================= 九州（手動作成） =================
+
+function addKyushuDay(){
+  state.kyushu.days.push({ date: '', staff: '', storeIds: [] });
+}
+
+document.getElementById('addKyushuDayBtn').addEventListener('click', ()=>{
+  addKyushuDay();
+  renderKyushuDays();
+});
+
+function renderKyushuDays(){
+  const container = document.getElementById('kyushuDaysList');
+  const kyushuStores = stores.filter(s=>s.area==='九州').sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  container.innerHTML = state.kyushu.days.map((day, di)=>{
+    const checks = kyushuStores.map(s=>`
+      <label style="display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13px;">
+        <input type="checkbox" class="kyushuStoreCheck" data-day="${di}" value="${s.id}" style="width:auto;" ${day.storeIds.includes(s.id)?'checked':''}>
+        ${escapeHtml(s.name)}
+      </label>`).join('') || '<div class="empty">九州の店舗が登録されていません</div>';
+    return `<div class="card" style="background:#F6FBFD; margin-bottom:12px;">
+      <div class="row">
+        <div>
+          <label>日付</label>
+          <input type="date" class="kyushuDateInput" data-day="${di}" value="${day.date}">
+        </div>
+        <div>
+          <label>担当者</label>
+          <select class="kyushuStaffInput" data-day="${di}">
+            <option value="">未定</option>
+            ${STAFF_LIST.map(name=>`<option value="${name}" ${day.staff===name?'selected':''}>${name}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <label style="display:block; margin:8px 0 4px;">訪店する店舗</label>
+      <div style="max-height:200px; overflow-y:auto; border:1.5px solid var(--line); border-radius:12px; padding:8px;">${checks}</div>
+      <button class="btn btn-outline btn-sm" style="margin-top:10px;" data-remove-day="${di}">この日を削除</button>
+    </div>`;
+  }).join('');
+
+  container.querySelectorAll('.kyushuDateInput').forEach(inp=>{
+    inp.addEventListener('change', ()=>{ state.kyushu.days[parseInt(inp.dataset.day)].date = inp.value; });
+  });
+  container.querySelectorAll('.kyushuStaffInput').forEach(sel=>{
+    sel.addEventListener('change', ()=>{ state.kyushu.days[parseInt(sel.dataset.day)].staff = sel.value; });
+  });
+  container.querySelectorAll('.kyushuStoreCheck').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const day = state.kyushu.days[parseInt(cb.dataset.day)];
+      if(cb.checked){ if(!day.storeIds.includes(cb.value)) day.storeIds.push(cb.value); }
+      else{ day.storeIds = day.storeIds.filter(id=>id!==cb.value); }
+    });
+  });
+  container.querySelectorAll('[data-remove-day]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.kyushu.days.splice(parseInt(btn.dataset.removeDay), 1);
+      renderKyushuDays();
+    });
+  });
+}
+
+document.getElementById('saveKyushuPlanBtn').addEventListener('click', async ()=>{
+  if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
+  const month = document.getElementById('kyushuMonth').value;
+  if(!month){ toast('対象月を選択してください'); return; }
+  const daysWithStores = state.kyushu.days.filter(d=>d.storeIds.length > 0);
+  if(daysWithStores.length === 0){ toast('店舗が選択された日がありません'); return; }
+
+  const groups = daysWithStores.map((d, i)=>({
+    label: `訪店日${i+1}`,
+    date: d.date || null,
+    staff: d.staff || null,
+    stores: d.storeIds.map(sid=>{
+      const s = stores.find(x=>x.id===sid);
+      return s ? { id: s.id, name: s.name, prefecture: s.prefecture } : null;
+    }).filter(Boolean),
+  }));
+
+  const payload = { area: '九州', month, visit_days: groups.length, groups };
+  const { error } = await supabase.from('monthly_plans').upsert(payload, { onConflict: 'area,month' });
+  if(error){ toast('保存エラー: ' + error.message); return; }
+  toast(`${month}の九州プランを保存しました`);
+  loadHistory();
+});
+
 async function loadHistory(){
   if(!supabase){ monthlyPlans = []; renderHistoryList(); updateHistoryTabLabel(); return; }
   const { data, error } = await supabase.from('monthly_plans').select('*').order('month', {ascending:false});
@@ -1252,6 +1370,7 @@ async function deletePlan(id){
   const now = new Date();
   const nm = new Date(now.getFullYear(), now.getMonth()+1, 1);
   document.getElementById('planMonth').value = `${nm.getFullYear()}-${String(nm.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('kyushuMonth').value = `${nm.getFullYear()}-${String(nm.getMonth()+1).padStart(2,'0')}`;
 })();
 </script>
 </body>
