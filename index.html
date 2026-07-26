@@ -386,6 +386,12 @@
     </div>
     <div class="row">
       <div>
+        <label>沿線・エリア（電車移動で近い店舗をまとめる時に使います）</label>
+        <input type="text" id="fLineTag" placeholder="例: 阪急神戸線、近鉄奈良線 など">
+      </div>
+    </div>
+    <div class="row">
+      <div>
         <label>Googleマップのリンクを貼ると緯度経度を自動取得</label>
         <input type="text" id="fMapUrl" placeholder="https://maps.google.com/...@34.69,135.50...">
       </div>
@@ -458,6 +464,7 @@ create table stores (
   area text not null,
   prefecture text,
   address text,
+  line_tag text,
   map_url text,
   lat float8,
   lng float8,
@@ -670,7 +677,7 @@ function renderStoreList(){
     return `<div class="store-row">
       <div style="flex:1;">
         <div class="store-name">${escapeHtml(s.name)}</div>
-        <div class="store-meta">${escapeHtml(s.prefecture||'')}・${escapeHtml(s.address||'住所未登録')}</div>
+        <div class="store-meta">${escapeHtml(s.prefecture||'')}・${escapeHtml(s.address||'住所未登録')}${s.line_tag ? ` ・ 🚃${escapeHtml(s.line_tag)}` : ''}</div>
         <div class="store-meta">最終訪店: ${label}${(s.lat&&s.lng)?'':' ・ 📍座標未登録'}</div>
         <div class="store-meta">
           ${s.has_manager ? '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">👔店長</span> ' : ''}
@@ -710,6 +717,7 @@ function openStoreModal(id){
     document.getElementById('fArea').value = s.area || '関西';
     document.getElementById('fPrefecture').value = s.prefecture || '';
     document.getElementById('fAddress').value = s.address || '';
+    document.getElementById('fLineTag').value = s.line_tag || '';
     document.getElementById('fMapUrl').value = s.map_url || '';
     document.getElementById('fLat').value = s.lat || '';
     document.getElementById('fLng').value = s.lng || '';
@@ -721,7 +729,7 @@ function openStoreModal(id){
     document.getElementById('fHasChief').checked = !!s.has_chief;
   } else {
     document.getElementById('storeModalTitle').textContent = '店舗を追加';
-    ['fName','fPrefecture','fAddress','fMapUrl','fLat','fLng','fLastVisit','fNotes'].forEach(id2=>document.getElementById(id2).value='');
+    ['fName','fPrefecture','fAddress','fLineTag','fMapUrl','fLat','fLng','fLastVisit','fNotes'].forEach(id2=>document.getElementById(id2).value='');
     document.getElementById('fInterval').value = 30;
     setFreqChips(30);
     document.getElementById('fHasManager').checked = false;
@@ -752,6 +760,7 @@ document.getElementById('saveStoreBtn').addEventListener('click', async ()=>{
     area: document.getElementById('fArea').value,
     prefecture: document.getElementById('fPrefecture').value.trim(),
     address: document.getElementById('fAddress').value.trim(),
+    line_tag: document.getElementById('fLineTag').value.trim(),
     map_url: document.getElementById('fMapUrl').value.trim(),
     lat: parseFloat(document.getElementById('fLat').value) || null,
     lng: parseFloat(document.getElementById('fLng').value) || null,
@@ -950,24 +959,24 @@ function orderGroup(group){
 
 // 座標が無い店舗向けの簡易グルーピング（都道府県ごとにだいたい2店舗ずつ）
 function fallbackClusterNoCoord(items, sizePerGroup){
-  const byPref = {};
+  const byArea = {};
   items.forEach(s=>{
-    const key = s.prefecture || '未設定';
-    if(!byPref[key]) byPref[key] = [];
-    byPref[key].push(s);
+    const key = s.line_tag || s.prefecture || '未設定';
+    if(!byArea[key]) byArea[key] = [];
+    byArea[key].push(s);
   });
   const groups = [];
-  Object.values(byPref).forEach(list=>{
-    const prefGroups = [];
+  Object.values(byArea).forEach(list=>{
+    const areaGroups = [];
     for(let i=0; i<list.length; i+=sizePerGroup){
-      prefGroups.push(list.slice(i, i+sizePerGroup));
+      areaGroups.push(list.slice(i, i+sizePerGroup));
     }
     // 端数が1店舗だけ余った場合は、孤立した1店舗日にせず直前の日に合流させて3店舗にする
-    if(prefGroups.length >= 2 && prefGroups[prefGroups.length-1].length === 1){
-      prefGroups[prefGroups.length-2].push(prefGroups[prefGroups.length-1][0]);
-      prefGroups.pop();
+    if(areaGroups.length >= 2 && areaGroups[areaGroups.length-1].length === 1){
+      areaGroups[areaGroups.length-2].push(areaGroups[areaGroups.length-1][0]);
+      areaGroups.pop();
     }
-    groups.push(...prefGroups);
+    groups.push(...areaGroups);
   });
   return groups;
 }
@@ -1022,7 +1031,7 @@ function renderCandidateList(endOfMonth){
 // 指定日数(k)を超えないよう、小さい日同士を（できるだけ同じ担当者内で）まとめる
 function dominantPrefecture(storeArr){
   const counts = {};
-  storeArr.forEach(s=>{ const p = s.prefecture || ''; counts[p] = (counts[p]||0) + 1; });
+  storeArr.forEach(s=>{ const p = s.line_tag || s.prefecture || ''; counts[p] = (counts[p]||0) + 1; });
   let best = '', bestCount = -1;
   Object.entries(counts).forEach(([p,c])=>{ if(c > bestCount){ best = p; bestCount = c; } });
   return best;
