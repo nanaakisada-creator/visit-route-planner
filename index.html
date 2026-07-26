@@ -405,6 +405,19 @@
     </div>
     <div class="row">
       <div>
+        <label>在籍状況</label>
+        <div class="chip-group">
+          <label style="display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:20px; border:1.5px solid var(--line); font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer;">
+            <input type="checkbox" id="fHasManager" style="width:auto;">店長在籍
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:20px; border:1.5px solid var(--line); font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer;">
+            <input type="checkbox" id="fHasChief" style="width:auto;">チーフ在籍
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div>
         <label>メモ</label>
         <textarea id="fNotes" rows="2" placeholder="駐車場は裏手にあり など"></textarea>
       </div>
@@ -439,6 +452,8 @@ create table stores (
   last_visit_date date,
   visit_interval_days int default 30,
   notes text,
+  has_manager boolean default false,
+  has_chief boolean default false,
   updated_at timestamptz default now()
 );
 alter table stores enable row level security;
@@ -643,6 +658,10 @@ function renderStoreList(){
         <div class="store-name">${escapeHtml(s.name)}</div>
         <div class="store-meta">${escapeHtml(s.prefecture||'')}・${escapeHtml(s.address||'住所未登録')}</div>
         <div class="store-meta">最終訪店: ${label}${(s.lat&&s.lng)?'':' ・ 📍座標未登録'}</div>
+        <div class="store-meta">
+          ${s.has_manager ? '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">👔店長</span> ' : ''}
+          ${s.has_chief ? '<span class="badge" style="background:var(--pink); color:#fff;">🎖️チーフ</span>' : ''}
+        </div>
       </div>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
         ${freqBadgeHtml(s.visit_interval_days||30)}
@@ -684,11 +703,15 @@ function openStoreModal(id){
     document.getElementById('fInterval').value = s.visit_interval_days || 30;
     setFreqChips(s.visit_interval_days || 30);
     document.getElementById('fNotes').value = s.notes || '';
+    document.getElementById('fHasManager').checked = !!s.has_manager;
+    document.getElementById('fHasChief').checked = !!s.has_chief;
   } else {
     document.getElementById('storeModalTitle').textContent = '店舗を追加';
     ['fName','fPrefecture','fAddress','fMapUrl','fLat','fLng','fLastVisit','fNotes'].forEach(id2=>document.getElementById(id2).value='');
     document.getElementById('fInterval').value = 30;
     setFreqChips(30);
+    document.getElementById('fHasManager').checked = false;
+    document.getElementById('fHasChief').checked = false;
     document.getElementById('fArea').value = state.storeAreaFilter !== 'all' ? state.storeAreaFilter : '関西';
   }
   modal.classList.add('active');
@@ -721,6 +744,8 @@ document.getElementById('saveStoreBtn').addEventListener('click', async ()=>{
     last_visit_date: document.getElementById('fLastVisit').value || null,
     visit_interval_days: parseInt(document.getElementById('fInterval').value) || 30,
     notes: document.getElementById('fNotes').value.trim(),
+    has_manager: document.getElementById('fHasManager').checked,
+    has_chief: document.getElementById('fHasChief').checked,
     updated_at: new Date().toISOString(),
   };
   if(!payload.name){ toast('店舗名を入力してください'); return; }
