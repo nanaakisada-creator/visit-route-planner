@@ -214,6 +214,15 @@
       <div class="card" id="candidateCard" style="display:none;">
         <h2>② 対象店舗（チェックで調整可）</h2>
         <p class="small-note" style="margin-bottom:8px;">サイクル的にその月までに訪店が必要な店舗に自動でチェックが入っています。手動で追加・除外もできます。</p>
+        <div class="row">
+          <div>
+            <label>絞り込み</label>
+            <div class="chip-group" id="roleFilterChips">
+              <div class="chip selected" data-role="all">すべて</div>
+              <div class="chip" data-role="role">役職者在籍のみ</div>
+            </div>
+          </div>
+        </div>
         <div id="candidateList"></div>
         <button class="btn btn-primary" style="margin-top:12px; width:100%;" id="groupBtn">グループ分けする</button>
       </div>
@@ -501,6 +510,7 @@ let state = {
     month: '',
     days: 8,
     candidateAll: [],
+    roleFilter: 'all',
     groups: [],
     groupDates: [],
     groupStaff: [],
@@ -632,6 +642,7 @@ setupChips('storeAreaChips', 'area', (v)=>{ state.storeAreaFilter = v; renderSto
 setupChips('routeAreaChips', 'area', (v)=>{ routeAreaFilter = v; renderRouteList(); });
 setupChips('planAreaChips', 'area', (v)=>{ state.monthly.area = v; });
 setupChips('histAreaChips', 'area', (v)=>{ historyAreaFilter = v; renderHistoryList(); });
+setupChips('roleFilterChips', 'role', (v)=>{ state.monthly.roleFilter = v; renderCandidateList(state.monthly._endOfMonth); });
 
 // ---- 店舗管理リスト描画 ----
 function freqLabel(days){
@@ -958,6 +969,7 @@ document.getElementById('extractBtn').addEventListener('click', ()=>{
   const endOfMonth = new Date(y, m, 0);
   state.monthly.month = monthVal;
   state.monthly.days = parseInt(document.getElementById('planDays').value) || 8;
+  state.monthly._endOfMonth = endOfMonth;
   const areaStores = stores.filter(s=>s.area===state.monthly.area);
   const withDue = areaStores.map(s=>({...s, _due: computeDueDate(s)}));
   withDue.sort((a,b)=>a._due-b._due);
@@ -968,10 +980,14 @@ document.getElementById('extractBtn').addEventListener('click', ()=>{
 function renderCandidateList(endOfMonth){
   const container = document.getElementById('candidateList');
   const areaRouteStoreIds = new Set(routes.filter(r=>r.area===state.monthly.area).flatMap(r=>r.store_ids||[]));
-  if(state.monthly.candidateAll.length === 0){
-    container.innerHTML = '<div class="empty">このエリアの店舗がありません</div>';
+  let list = state.monthly.candidateAll;
+  if(state.monthly.roleFilter === 'role'){
+    list = list.filter(s=>s.has_manager || s.has_chief);
+  }
+  if(list.length === 0){
+    container.innerHTML = '<div class="empty">該当する店舗がありません</div>';
   } else {
-    container.innerHTML = state.monthly.candidateAll.map(s=>{
+    container.innerHTML = list.map(s=>{
       const due = s._due <= endOfMonth;
       const noCoord = !s.lat || !s.lng;
       const inRoute = areaRouteStoreIds.has(s.id);
@@ -982,6 +998,8 @@ function renderCandidateList(endOfMonth){
           <div class="store-meta">${escapeHtml(s.prefecture||'')} ・ 目安訪店期限: ${s._due.toISOString().slice(0,10)}</div>
         </div>
         ${freqBadgeHtml(s.visit_interval_days||30)}
+        ${s.has_manager ? '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">👔店長</span>' : ''}
+        ${s.has_chief ? '<span class="badge" style="background:var(--pink); color:#fff;">🎖️チーフ</span>' : ''}
         ${inRoute ? '<span class="badge badge-ok">🔗固定ルート</span>' : ''}
         ${noCoord ? '<span class="badge badge-none">座標なし</span>' : ''}
       </div>`;
