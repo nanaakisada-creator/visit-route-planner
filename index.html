@@ -265,9 +265,12 @@
         <div id="historyList"></div>
       </div>
       <div class="card" id="historyDetailCard" style="display:none;">
-        <h2 id="historyDetailTitle"></h2>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+          <h2 id="historyDetailTitle" style="margin:0;"></h2>
+          <button class="btn btn-outline btn-sm" id="toggleEditModeBtn">✏️ 編集する</button>
+        </div>
         <div id="historyDetail"></div>
-        <button class="btn btn-mint" style="width:100%; margin-top:10px;" id="saveHistoryChangesBtn">変更を保存する</button>
+        <button class="btn btn-mint" style="width:100%; margin-top:10px; display:none;" id="saveHistoryChangesBtn">変更を保存する</button>
         <button class="btn btn-outline" style="width:100%; margin-top:10px;" id="deletePlanBtn">このプランを削除</button>
       </div>
     </div>
@@ -1309,22 +1312,32 @@ function circledNum(n){
 }
 
 let currentDetailPlan = null;
+let historyEditMode = false;
 
 function showHistoryDetail(id){
   const plan = monthlyPlans.find(p=>p.id===id);
   if(!plan) return;
   currentDetailPlan = plan;
+  historyEditMode = false;
   document.getElementById('historyDetailTitle').textContent = `${plan.month} ${plan.area}`;
   renderHistoryDetailBody();
   document.getElementById('historyDetailCard').style.display = 'block';
   document.getElementById('deletePlanBtn').dataset.id = id;
 }
 
+document.getElementById('toggleEditModeBtn').addEventListener('click', ()=>{
+  historyEditMode = !historyEditMode;
+  renderHistoryDetailBody();
+});
+
 function renderHistoryDetailBody(){
   const plan = currentDetailPlan;
   if(!plan) return;
   const detail = document.getElementById('historyDetail');
   const areaStores = stores.filter(s=>s.area===plan.area).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+
+  document.getElementById('toggleEditModeBtn').textContent = historyEditMode ? '📋 表示に戻る' : '✏️ 編集する';
+  document.getElementById('saveHistoryChangesBtn').style.display = historyEditMode ? 'block' : 'none';
 
   // 担当者ごとにまとめる（登場順、未定は最後）。元のplan.groups内でのインデックスも保持しておく
   const byStaff = {};
@@ -1340,6 +1353,37 @@ function renderHistoryDetailBody(){
     return 0;
   });
 
+  if(!historyEditMode){
+    // ---- コンパクト表示（デフォルト） ----
+    let html = staffOrder.map(staffName=>{
+      const staffGroups = byStaff[staffName].slice().sort((a,b)=>{
+        if(!a.date && !b.date) return 0;
+        if(!a.date) return 1;
+        if(!b.date) return -1;
+        return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+      });
+      const storeCount = staffGroups.reduce((s,g)=>s + g.stores.length, 0);
+      const rows = staffGroups.map((g, localIdx)=>{
+        const storeNames = g.stores.map(s=>escapeHtml(s.name)).join('・') || '店舗未割当';
+        return `<div style="display:flex; gap:10px; padding:7px 4px; border-bottom:1px solid var(--line); font-size:13px; align-items:baseline;">
+          <span style="color:var(--pink-deep); font-weight:700; flex-shrink:0;">${circledNum(localIdx+1)}</span>
+          <span style="color:var(--ink-soft); flex-shrink:0; min-width:78px;">${g.date || '(日付未定)'}</span>
+          <span>${storeNames}</span>
+        </div>`;
+      }).join('');
+      return `<div style="margin-bottom:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 4px; border-bottom:2px solid var(--pink); margin-bottom:2px;">
+          <h2 style="font-size:15px; color:var(--pink-deep);">${escapeHtml(staffName)}</h2>
+          <span class="badge badge-ok">${staffGroups.length}日間・${storeCount}店舗</span>
+        </div>
+        ${rows}
+      </div>`;
+    }).join('');
+    detail.innerHTML = html;
+    return;
+  }
+
+  // ---- 編集モード ----
   let html = staffOrder.map(staffName=>{
     const staffGroups = byStaff[staffName].slice().sort((a,b)=>{
       if(!a.date && !b.date) return 0;
