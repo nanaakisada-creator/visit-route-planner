@@ -1029,7 +1029,9 @@ function dominantPrefecture(storeArr){
 }
 
 // 指定日数(k)を超えないよう、小さい日同士を（同じ担当者・同じ都道府県を優先して）まとめる
-function capGroupsToK(items, k){
+// ただし1日あたり最大3店舗までとし、それを超えるマージは行わない
+function capGroupsToK(items, k, maxPerDay){
+  maxPerDay = maxPerDay || 3;
   items = items.map(x=>({ stores: x.stores.slice(), staff: x.staff || '' }));
   while(items.length > k){
     let bestI=-1, bestJ=-1, bestScore=Infinity;
@@ -1037,16 +1039,16 @@ function capGroupsToK(items, k){
       for(let j=i+1;j<items.length;j++){
         const sameStaff = (!items[i].staff || !items[j].staff || items[i].staff===items[j].staff);
         if(!sameStaff) continue;
+        const size = items[i].stores.length + items[j].stores.length;
+        if(size > maxPerDay) continue; // 1日3店舗を超えるマージはしない
         const prefI = dominantPrefecture(items[i].stores);
         const prefJ = dominantPrefecture(items[j].stores);
         const samePref = prefI && prefJ && prefI === prefJ;
-        const size = items[i].stores.length + items[j].stores.length;
-        // 同じ都道府県のペアを最優先。都道府県が違う場合は大きなペナルティを課す
         const score = (samePref ? 0 : 1000) + size;
         if(score < bestScore){ bestScore = score; bestI = i; bestJ = j; }
       }
     }
-    if(bestI === -1){ bestI = 0; bestJ = 1; }
+    if(bestI === -1) break; // これ以上、3店舗を超えずには収められない
     items[bestI].stores = [...items[bestI].stores, ...items[bestJ].stores];
     items[bestI].staff = items[bestI].staff || items[bestJ].staff;
     items.splice(bestJ, 1);
@@ -1122,7 +1124,11 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
     state.monthly.groups = capped.map(c=>orderGroup(c.stores).order);
     state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
     state.monthly.groupStaff = capped.map(c=>c.staff || '');
-    toast(`指定日数（${k}日）に収まるよう、いくつかの日をまとめました`);
+    if(capped.length > k){
+      toast(`1日3店舗までの上限があるため、指定日数（${k}日）には収まらず${capped.length}日になりました`);
+    } else {
+      toast(`指定日数（${k}日）に収まるよう、いくつかの日をまとめました`);
+    }
   } else {
     state.monthly.groups = allClusters.map(c=>orderGroup(c.stores).order);
     state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
