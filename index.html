@@ -958,9 +958,16 @@ function fallbackClusterNoCoord(items, sizePerGroup){
   });
   const groups = [];
   Object.values(byPref).forEach(list=>{
+    const prefGroups = [];
     for(let i=0; i<list.length; i+=sizePerGroup){
-      groups.push(list.slice(i, i+sizePerGroup));
+      prefGroups.push(list.slice(i, i+sizePerGroup));
     }
+    // 端数が1店舗だけ余った場合は、孤立した1店舗日にせず直前の日に合流させて3店舗にする
+    if(prefGroups.length >= 2 && prefGroups[prefGroups.length-1].length === 1){
+      prefGroups[prefGroups.length-2].push(prefGroups[prefGroups.length-1][0]);
+      prefGroups.pop();
+    }
+    groups.push(...prefGroups);
   });
   return groups;
 }
