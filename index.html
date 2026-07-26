@@ -1020,16 +1020,30 @@ function renderCandidateList(endOfMonth){
 }
 
 // 指定日数(k)を超えないよう、小さい日同士を（できるだけ同じ担当者内で）まとめる
+function dominantPrefecture(storeArr){
+  const counts = {};
+  storeArr.forEach(s=>{ const p = s.prefecture || ''; counts[p] = (counts[p]||0) + 1; });
+  let best = '', bestCount = -1;
+  Object.entries(counts).forEach(([p,c])=>{ if(c > bestCount){ best = p; bestCount = c; } });
+  return best;
+}
+
+// 指定日数(k)を超えないよう、小さい日同士を（同じ担当者・同じ都道府県を優先して）まとめる
 function capGroupsToK(items, k){
   items = items.map(x=>({ stores: x.stores.slice(), staff: x.staff || '' }));
   while(items.length > k){
-    let bestI=-1, bestJ=-1, bestSize=Infinity;
+    let bestI=-1, bestJ=-1, bestScore=Infinity;
     for(let i=0;i<items.length;i++){
       for(let j=i+1;j<items.length;j++){
         const sameStaff = (!items[i].staff || !items[j].staff || items[i].staff===items[j].staff);
         if(!sameStaff) continue;
+        const prefI = dominantPrefecture(items[i].stores);
+        const prefJ = dominantPrefecture(items[j].stores);
+        const samePref = prefI && prefJ && prefI === prefJ;
         const size = items[i].stores.length + items[j].stores.length;
-        if(size < bestSize){ bestSize = size; bestI=i; bestJ=j; }
+        // 同じ都道府県のペアを最優先。都道府県が違う場合は大きなペナルティを課す
+        const score = (samePref ? 0 : 1000) + size;
+        if(score < bestScore){ bestScore = score; bestI = i; bestJ = j; }
       }
     }
     if(bestI === -1){ bestI = 0; bestJ = 1; }
