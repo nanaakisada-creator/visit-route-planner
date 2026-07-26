@@ -1019,6 +1019,27 @@ function renderCandidateList(endOfMonth){
   document.getElementById('groupResultCard').style.display = 'none';
 }
 
+// 指定日数(k)を超えないよう、小さい日同士を（できるだけ同じ担当者内で）まとめる
+function capGroupsToK(items, k){
+  items = items.map(x=>({ stores: x.stores.slice(), staff: x.staff || '' }));
+  while(items.length > k){
+    let bestI=-1, bestJ=-1, bestSize=Infinity;
+    for(let i=0;i<items.length;i++){
+      for(let j=i+1;j<items.length;j++){
+        const sameStaff = (!items[i].staff || !items[j].staff || items[i].staff===items[j].staff);
+        if(!sameStaff) continue;
+        const size = items[i].stores.length + items[j].stores.length;
+        if(size < bestSize){ bestSize = size; bestI=i; bestJ=j; }
+      }
+    }
+    if(bestI === -1){ bestI = 0; bestJ = 1; }
+    items[bestI].stores = [...items[bestI].stores, ...items[bestJ].stores];
+    items[bestI].staff = items[bestI].staff || items[bestJ].staff;
+    items.splice(bestJ, 1);
+  }
+  return items;
+}
+
 document.getElementById('groupBtn').addEventListener('click', ()=>{
   const checkedIds = [...document.querySelectorAll('.candCheck:checked')].map(cb=>cb.dataset.id);
   let candidates = state.monthly.candidateAll.filter(s=>checkedIds.includes(s.id));
@@ -1078,6 +1099,21 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
   state.monthly.groups = [...fixedClusters, ...freeClusters].map(g=>orderGroup(g).order);
   state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
   state.monthly.groupStaff = state.monthly.groups.map((_, i)=> i < fixedClusterData.length ? (fixedClusterData[i].staff || '') : '');
+
+  const allClusters = fixedClusterData.map(x=>({ stores: x.members, staff: x.staff || '' }))
+    .concat(freeClusters.map(g=>({ stores: g, staff: '' })));
+
+  if(allClusters.length > k){
+    const capped = capGroupsToK(allClusters, k);
+    state.monthly.groups = capped.map(c=>orderGroup(c.stores).order);
+    state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
+    state.monthly.groupStaff = capped.map(c=>c.staff || '');
+    toast(`指定日数（${k}日）に収まるよう、いくつかの日をまとめました`);
+  } else {
+    state.monthly.groups = allClusters.map(c=>orderGroup(c.stores).order);
+    state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
+    state.monthly.groupStaff = allClusters.map(c=>c.staff || '');
+  }
   renderGroupResult();
 });
 
