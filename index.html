@@ -1056,6 +1056,21 @@ function capGroupsToK(items, k, maxPerDay){
   return items;
 }
 
+// 担当者が未定の日を、既存の担当日数バランスを見ながら自動で割り振る
+function assignMissingStaff(groupStaffArr){
+  const counts = {};
+  STAFF_LIST.forEach(name=>counts[name] = 0);
+  groupStaffArr.forEach(s=>{ if(s && counts[s] !== undefined) counts[s]++; });
+  return groupStaffArr.map(s=>{
+    if(s) return s;
+    // 一番担当日数が少ない人に割り振る
+    let best = STAFF_LIST[0];
+    STAFF_LIST.forEach(name=>{ if(counts[name] < counts[best]) best = name; });
+    counts[best]++;
+    return best;
+  });
+}
+
 document.getElementById('groupBtn').addEventListener('click', ()=>{
   const checkedIds = [...document.querySelectorAll('.candCheck:checked')].map(cb=>cb.dataset.id);
   let candidates = state.monthly.candidateAll.filter(s=>checkedIds.includes(s.id));
@@ -1123,7 +1138,7 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
     const capped = capGroupsToK(allClusters, k);
     state.monthly.groups = capped.map(c=>orderGroup(c.stores).order);
     state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
-    state.monthly.groupStaff = capped.map(c=>c.staff || '');
+    state.monthly.groupStaff = assignMissingStaff(capped.map(c=>c.staff || ''));
     if(capped.length > k){
       toast(`1日3店舗までの上限があるため、指定日数（${k}日）には収まらず${capped.length}日になりました`);
     } else {
@@ -1132,7 +1147,7 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
   } else {
     state.monthly.groups = allClusters.map(c=>orderGroup(c.stores).order);
     state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
-    state.monthly.groupStaff = allClusters.map(c=>c.staff || '');
+    state.monthly.groupStaff = assignMissingStaff(allClusters.map(c=>c.staff || ''));
   }
   renderGroupResult();
 });
