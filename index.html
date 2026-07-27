@@ -1012,8 +1012,9 @@ function renderCandidateList(endOfMonth){
       const due = s._due <= endOfMonth;
       const noCoord = !s.lat || !s.lng;
       const inRoute = areaRouteStoreIds.has(s.id);
+      const checked = state.monthly.roleFilter === 'role' ? true : due;
       return `<div class="store-row">
-        <input type="checkbox" class="candCheck" data-id="${s.id}" ${due?'checked':''} style="width:auto;">
+        <input type="checkbox" class="candCheck" data-id="${s.id}" ${checked?'checked':''} style="width:auto;">
         <div style="flex:1;">
           <div class="store-name">${escapeHtml(s.name)}</div>
           <div class="store-meta">${escapeHtml(s.prefecture||'')} ・ 目安訪店期限: ${s._due.toISOString().slice(0,10)}</div>
@@ -1203,14 +1204,17 @@ function renderGroupResult(){
     const dists = orderGroup(g).dists;
     const totalKm = dists.reduce((a,b)=>a+b,0);
     const groupOptions = Array.from({length:groupCount}, (_,i)=>`<option value="${i}" ${i===gi?'selected':''}>訪店日${i+1}</option>`).join('');
-    const rows = g.map((s,idx)=>`<div class="store-row">
+    const rows = g.map((s,idx)=>{
+      const isNonRole = state.monthly.roleFilter === 'role' && !s.has_manager && !s.has_chief;
+      return `<div class="store-row">
         <div class="num" style="width:26px;height:26px;font-size:12px;">${idx+1}</div>
         <div style="flex:1;">
           <div class="store-name">${escapeHtml(s.name)}</div>
-          <div class="store-meta">${escapeHtml(s.prefecture||'')}</div>
+          <div class="store-meta">${escapeHtml(s.prefecture||'')}${isNonRole ? ' ・ ペア相方（役職者なし）' : ''}</div>
         </div>
         <select class="moveSelect" data-store="${s.id}" data-group="${gi}">${groupOptions}</select>
-      </div>`).join('') || '<div class="empty">店舗未割当</div>';
+      </div>`;
+    }).join('') || '<div class="empty">店舗未割当</div>';
     html += `<div class="card" style="background:#F6FBFD; margin-bottom:12px;">
       <div class="row">
         <div>
