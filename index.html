@@ -617,15 +617,17 @@ document.getElementById('subNewBtn').addEventListener('click', ()=>{
   document.getElementById('subKyushuBtn').classList.remove('active');
   document.getElementById('subHistoryBtn').classList.remove('active');
 });
-document.getElementById('subKyushuBtn').addEventListener('click', ()=>{
+document.getElementById('subKyushuBtn').addEventListener('click', async ()=>{
   document.getElementById('monthlyNew').style.display = 'none';
   document.getElementById('monthlyKyushu').style.display = 'block';
   document.getElementById('monthlyHistory').style.display = 'none';
   document.getElementById('subKyushuBtn').classList.add('active');
   document.getElementById('subNewBtn').classList.remove('active');
   document.getElementById('subHistoryBtn').classList.remove('active');
-  if(state.kyushu.days.length === 0) addKyushuDay();
-  renderKyushuDays();
+  await loadKyushuMonthPlan(document.getElementById('kyushuMonth').value);
+});
+document.getElementById('kyushuMonth').addEventListener('change', async (e)=>{
+  await loadKyushuMonthPlan(e.target.value);
 });
 document.getElementById('subHistoryBtn').addEventListener('click', ()=>{
   document.getElementById('monthlyNew').style.display = 'none';
@@ -1272,6 +1274,28 @@ document.getElementById('savePlanBtn').addEventListener('click', async ()=>{
 });
 
 // ================= 九州（手動作成） =================
+
+let kyushuCurrentPlanId = null;
+
+async function loadKyushuMonthPlan(month){
+  kyushuCurrentPlanId = null;
+  state.kyushu.days = [];
+  if(supabase && month){
+    const { data, error } = await supabase.from('monthly_plans').select('*').eq('area','九州').eq('month', month).maybeSingle();
+    if(error){ toast('読み込みエラー: ' + error.message); }
+    if(data){
+      kyushuCurrentPlanId = data.id;
+      state.kyushu.days = (data.groups||[]).map(g=>({
+        date: g.date || '',
+        staff: g.staff || '',
+        storeIds: (g.stores||[]).map(s=>s.id),
+      }));
+      toast(`${month}の九州プラン（保存済み）を読み込みました`);
+    }
+  }
+  if(state.kyushu.days.length === 0) addKyushuDay();
+  renderKyushuDays();
+}
 
 function addKyushuDay(){
   state.kyushu.days.push({ date: '', staff: '', storeIds: [] });
