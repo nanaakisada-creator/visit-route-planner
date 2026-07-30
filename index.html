@@ -290,6 +290,15 @@
           </div>
         </div>
       </div>
+      <div class="row">
+        <div>
+          <label>昇格考査チェック</label>
+          <div class="chip-group" id="reviewFilterChips">
+            <div class="chip selected" data-review="all">すべて</div>
+            <div class="chip" data-review="pending">役職者・未実施のみ</div>
+          </div>
+        </div>
+      </div>
       <div id="storeList"></div>
     </div>
     <button class="btn btn-mint" style="width:100%;" id="addStoreBtn">＋ 店舗を追加</button>
@@ -436,6 +445,18 @@
     </div>
     <div class="row">
       <div>
+        <label>昇格考査チェック</label>
+        <label style="display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:20px; border:1.5px solid var(--line); font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer; width:fit-content;">
+          <input type="checkbox" id="fReviewChecked" style="width:auto;">実施済み
+        </label>
+      </div>
+      <div>
+        <label>実施日</label>
+        <input type="date" id="fReviewCheckedDate">
+      </div>
+    </div>
+    <div class="row">
+      <div>
         <label>メモ</label>
         <textarea id="fNotes" rows="2" placeholder="駐車場は裏手にあり など"></textarea>
       </div>
@@ -473,6 +494,8 @@ create table stores (
   notes text,
   has_manager boolean default false,
   has_chief boolean default false,
+  review_checked boolean default false,
+  review_checked_date date,
   updated_at timestamptz default now()
 );
 alter table stores enable row level security;
@@ -515,6 +538,7 @@ let routes = [];
 let routeAreaFilter = '関西';
 let state = {
   storeAreaFilter: 'all',
+  reviewFilter: 'all',
   monthly: {
     area: '関西',
     month: '',
@@ -651,6 +675,7 @@ function setupChips(containerId, dataAttr, onChange){
   });
 }
 setupChips('storeAreaChips', 'area', (v)=>{ state.storeAreaFilter = v; renderStoreList(); });
+setupChips('reviewFilterChips', 'review', (v)=>{ state.reviewFilter = v; renderStoreList(); });
 setupChips('routeAreaChips', 'area', (v)=>{ routeAreaFilter = v; renderRouteList(); });
 setupChips('planAreaChips', 'area', (v)=>{ state.monthly.area = v; });
 setupChips('histAreaChips', 'area', (v)=>{ historyAreaFilter = v; renderHistoryList(); });
@@ -671,6 +696,7 @@ function renderStoreList(){
   const container = document.getElementById('storeList');
   let filtered = stores.slice();
   if(state.storeAreaFilter !== 'all') filtered = filtered.filter(s=>s.area===state.storeAreaFilter);
+  if(state.reviewFilter === 'pending') filtered = filtered.filter(s=>(s.has_manager||s.has_chief) && !s.review_checked);
   filtered.sort((a,b)=>priorityInfo(b).ratio - priorityInfo(a).ratio);
   if(filtered.length===0){ container.innerHTML = '<div class="empty">店舗が登録されていません</div>'; return; }
   container.innerHTML = filtered.map(s=>{
@@ -683,7 +709,8 @@ function renderStoreList(){
         <div class="store-meta">最終訪店: ${label}${(s.lat&&s.lng)?'':' ・ 📍座標未登録'}</div>
         <div class="store-meta">
           ${s.has_manager ? '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">👔店長</span> ' : ''}
-          ${s.has_chief ? '<span class="badge" style="background:var(--pink); color:#fff;">🎖️チーフ</span>' : ''}
+          ${s.has_chief ? '<span class="badge" style="background:var(--pink); color:#fff;">🎖️チーフ</span> ' : ''}
+          ${(s.has_manager||s.has_chief) ? (s.review_checked ? `<span class="badge badge-ok">✅考査済み${s.review_checked_date?`(${s.review_checked_date})`:''}</span>` : '<span class="badge badge-warn">📝考査未実施</span>') : ''}
         </div>
       </div>
       <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
@@ -729,6 +756,8 @@ function openStoreModal(id){
     document.getElementById('fNotes').value = s.notes || '';
     document.getElementById('fHasManager').checked = !!s.has_manager;
     document.getElementById('fHasChief').checked = !!s.has_chief;
+    document.getElementById('fReviewChecked').checked = !!s.review_checked;
+    document.getElementById('fReviewCheckedDate').value = s.review_checked_date || '';
   } else {
     document.getElementById('storeModalTitle').textContent = '店舗を追加';
     ['fName','fPrefecture','fAddress','fLineTag','fMapUrl','fLat','fLng','fLastVisit','fNotes'].forEach(id2=>document.getElementById(id2).value='');
@@ -736,6 +765,8 @@ function openStoreModal(id){
     setFreqChips(30);
     document.getElementById('fHasManager').checked = false;
     document.getElementById('fHasChief').checked = false;
+    document.getElementById('fReviewChecked').checked = false;
+    document.getElementById('fReviewCheckedDate').value = '';
     document.getElementById('fArea').value = state.storeAreaFilter !== 'all' ? state.storeAreaFilter : '関西';
   }
   modal.classList.add('active');
@@ -771,6 +802,8 @@ document.getElementById('saveStoreBtn').addEventListener('click', async ()=>{
     notes: document.getElementById('fNotes').value.trim(),
     has_manager: document.getElementById('fHasManager').checked,
     has_chief: document.getElementById('fHasChief').checked,
+    review_checked: document.getElementById('fReviewChecked').checked,
+    review_checked_date: document.getElementById('fReviewCheckedDate').value || null,
     updated_at: new Date().toISOString(),
   };
   if(!payload.name){ toast('店舗名を入力してください'); return; }
