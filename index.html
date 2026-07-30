@@ -175,6 +175,7 @@
 
   <nav class="tabs">
     <button id="tabMonthlyBtn" class="active">月間プラン</button>
+    <button id="tabReviewBtn">考査チェック</button>
     <button id="tabStoreBtn">店舗管理</button>
   </nav>
 
@@ -276,6 +277,33 @@
     </div>
   </section>
 
+  <!-- 考査チェック -->
+  <section id="panelReview" class="panel">
+    <div class="card">
+      <h2>昇格考査チェック</h2>
+      <p class="small-note" style="margin-bottom:8px;">店長・チーフが在籍する店舗の一覧です。実施したらチェックを入れてください（自動で保存されます）。</p>
+      <div class="row">
+        <div>
+          <label>エリア</label>
+          <div class="chip-group" id="reviewAreaChips">
+            <div class="chip selected" data-area="all">すべて</div>
+            <div class="chip" data-area="関西">関西</div>
+            <div class="chip" data-area="九州">九州</div>
+          </div>
+        </div>
+        <div>
+          <label>状況</label>
+          <div class="chip-group" id="reviewStatusChips">
+            <div class="chip selected" data-status="all">すべて</div>
+            <div class="chip" data-status="pending">未実施のみ</div>
+            <div class="chip" data-status="done">実施済みのみ</div>
+          </div>
+        </div>
+      </div>
+      <div id="reviewList"></div>
+    </div>
+  </section>
+
   <!-- 店舗管理 -->
   <section id="panelStore" class="panel">
     <div class="card">
@@ -287,15 +315,6 @@
             <div class="chip selected" data-area="all">すべて</div>
             <div class="chip" data-area="関西">関西</div>
             <div class="chip" data-area="九州">九州</div>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>昇格考査チェック</label>
-          <div class="chip-group" id="reviewFilterChips">
-            <div class="chip selected" data-review="all">すべて</div>
-            <div class="chip" data-review="pending">役職者・未実施のみ</div>
           </div>
         </div>
       </div>
@@ -538,7 +557,6 @@ let routes = [];
 let routeAreaFilter = '関西';
 let state = {
   storeAreaFilter: 'all',
-  reviewFilter: 'all',
   monthly: {
     area: '関西',
     month: '',
@@ -623,13 +641,17 @@ document.getElementById('fMapUrl').addEventListener('input', (e)=>{
 
 // ---- タブ切替 ----
 document.getElementById('tabMonthlyBtn').addEventListener('click', ()=>switchTab('monthly'));
+document.getElementById('tabReviewBtn').addEventListener('click', ()=>switchTab('review'));
 document.getElementById('tabStoreBtn').addEventListener('click', ()=>switchTab('store'));
 function switchTab(tab){
   document.getElementById('panelMonthly').classList.toggle('active', tab==='monthly');
+  document.getElementById('panelReview').classList.toggle('active', tab==='review');
   document.getElementById('panelStore').classList.toggle('active', tab==='store');
   document.getElementById('tabMonthlyBtn').classList.toggle('active', tab==='monthly');
+  document.getElementById('tabReviewBtn').classList.toggle('active', tab==='review');
   document.getElementById('tabStoreBtn').classList.toggle('active', tab==='store');
   if(tab==='store'){ renderStoreList(); renderRouteList(); }
+  if(tab==='review'){ renderReviewList(); }
 }
 
 // ---- 月間プラン: サブタブ ----
@@ -675,7 +697,6 @@ function setupChips(containerId, dataAttr, onChange){
   });
 }
 setupChips('storeAreaChips', 'area', (v)=>{ state.storeAreaFilter = v; renderStoreList(); });
-setupChips('reviewFilterChips', 'review', (v)=>{ state.reviewFilter = v; renderStoreList(); });
 setupChips('routeAreaChips', 'area', (v)=>{ routeAreaFilter = v; renderRouteList(); });
 setupChips('planAreaChips', 'area', (v)=>{ state.monthly.area = v; });
 setupChips('histAreaChips', 'area', (v)=>{ historyAreaFilter = v; renderHistoryList(); });
@@ -692,11 +713,76 @@ function freqBadgeHtml(days){
   if(days <= 30) return '<span class="badge" style="background:#F1E9DC; color:#93805F;">月1回</span>';
   return '<span class="badge" style="background:var(--mint); color:#2E5C1A;">2ヶ月に1回</span>';
 }
+// ---- 考査チェックタブ ----
+let reviewAreaFilter = 'all';
+let reviewStatusFilter = 'all';
+setupChips('reviewAreaChips', 'area', (v)=>{ reviewAreaFilter = v; renderReviewList(); });
+setupChips('reviewStatusChips', 'status', (v)=>{ reviewStatusFilter = v; renderReviewList(); });
+
+function renderReviewList(){
+  const container = document.getElementById('reviewList');
+  let list = stores.filter(s=>s.has_manager || s.has_chief);
+  if(reviewAreaFilter !== 'all') list = list.filter(s=>s.area===reviewAreaFilter);
+  if(reviewStatusFilter === 'pending') list = list.filter(s=>!s.review_checked);
+  if(reviewStatusFilter === 'done') list = list.filter(s=>s.review_checked);
+  list = list.slice().sort((a,b)=>{
+    if(!!a.review_checked !== !!b.review_checked) return a.review_checked ? 1 : -1;
+    return a.name.localeCompare(b.name, 'ja');
+  });
+  if(list.length === 0){
+    container.innerHTML = '<div class="empty">該当する店舗がありません</div>';
+    return;
+  }
+  container.innerHTML = list.map(s=>`
+    <div class="store-row">
+      <div style="flex:1;">
+        <div class="store-name">${escapeHtml(s.name)}</div>
+        <div class="store-meta">
+          ${escapeHtml(s.area||'')}・${escapeHtml(s.prefecture||'')}
+          ${s.has_manager ? ' <span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">👔店長</span>' : ''}
+          ${s.has_chief ? ' <span class="badge" style="background:var(--pink); color:#fff;">🎖️チーフ</span>' : ''}
+        </div>
+      </div>
+      <input type="date" class="reviewDateInput" data-id="${s.id}" value="${s.review_checked_date||''}" style="width:140px;">
+      <label style="display:flex; align-items:center; gap:4px; font-size:12px; white-space:nowrap;">
+        <input type="checkbox" class="reviewCheckInput" data-id="${s.id}" ${s.review_checked?'checked':''} style="width:auto;">実施済み
+      </label>
+    </div>`).join('');
+
+  container.querySelectorAll('.reviewCheckInput').forEach(cb=>{
+    cb.addEventListener('change', ()=>updateReviewCheck(cb.dataset.id, cb.checked));
+  });
+  container.querySelectorAll('.reviewDateInput').forEach(inp=>{
+    inp.addEventListener('change', ()=>updateReviewDate(inp.dataset.id, inp.value));
+  });
+}
+
+async function updateReviewCheck(storeId, checked){
+  if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
+  const payload = { review_checked: checked };
+  if(checked){
+    const s = stores.find(x=>x.id===storeId);
+    if(s && !s.review_checked_date){
+      payload.review_checked_date = new Date().toISOString().slice(0,10);
+    }
+  }
+  const { error } = await supabase.from('stores').update(payload).eq('id', storeId);
+  if(error){ toast('更新エラー: ' + error.message); return; }
+  await loadStores();
+  renderReviewList();
+}
+
+async function updateReviewDate(storeId, dateVal){
+  if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
+  const { error } = await supabase.from('stores').update({ review_checked_date: dateVal || null }).eq('id', storeId);
+  if(error){ toast('更新エラー: ' + error.message); return; }
+  await loadStores();
+}
+
 function renderStoreList(){
   const container = document.getElementById('storeList');
   let filtered = stores.slice();
   if(state.storeAreaFilter !== 'all') filtered = filtered.filter(s=>s.area===state.storeAreaFilter);
-  if(state.reviewFilter === 'pending') filtered = filtered.filter(s=>(s.has_manager||s.has_chief) && !s.review_checked);
   filtered.sort((a,b)=>priorityInfo(b).ratio - priorityInfo(a).ratio);
   if(filtered.length===0){ container.innerHTML = '<div class="empty">店舗が登録されていません</div>'; return; }
   container.innerHTML = filtered.map(s=>{
