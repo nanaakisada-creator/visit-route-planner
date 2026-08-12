@@ -1804,7 +1804,14 @@ async function deletePlan(id){
   const nm = new Date(now.getFullYear(), now.getMonth()+1, 1);
   document.getElementById('planMonth').value = `${nm.getFullYear()}-${String(nm.getMonth()+1).padStart(2,'0')}`;
   document.getElementById('kyushuMonth').value = `${nm.getFullYear()}-${String(nm.getMonth()+1).padStart(2,'0')}`;
-  document.getElementById('reviewPeriod').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+  // 考査チェックの対象月は、記録がある一番新しい月をデフォルトにする（無ければ今月）
+  let defaultReviewPeriod = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  if(supabase){
+    const { data } = await supabase.from('review_checks').select('period').order('period', { ascending: false }).limit(1);
+    if(data && data.length) defaultReviewPeriod = data[0].period;
+  }
+  document.getElementById('reviewPeriod').value = defaultReviewPeriod;
 })();
 </script>
 </body>
