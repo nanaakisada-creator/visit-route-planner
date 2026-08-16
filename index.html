@@ -954,36 +954,62 @@ function renderPersonnelList(){
   if(personnelTypeFilter !== 'all') list = list.filter(p=>p.change_type===personnelTypeFilter);
   if(list.length === 0){ container.innerHTML = '<div class="empty">該当する予定がありません</div>'; return; }
 
-  container.innerHTML = list.map(p=>{
-    const storeName = p.store_id ? (stores.find(s=>s.id===p.store_id)?.name || '（削除済み店舗）') : '未設定';
-    const destName = p.destination_store_id ? (stores.find(s=>s.id===p.destination_store_id)?.name || '（削除済み店舗）') : '';
-    const days = daysUntil(p.change_date);
-    let badge = '';
-    if(days !== null){
-      if(days < 0) badge = `<span class="badge badge-danger">${Math.abs(days)}日経過</span>`;
-      else if(days <= 14) badge = `<span class="badge badge-danger">あと${days}日</span>`;
-      else if(days <= 30) badge = `<span class="badge badge-warn">あと${days}日</span>`;
-      else badge = `<span class="badge badge-ok">あと${days}日</span>`;
-    }
-    const typeBadge = p.change_type === '退職予定'
-      ? '<span class="badge" style="background:var(--danger-bg); color:var(--danger);">退職予定</span>'
-      : p.change_type === '産休予定'
-        ? '<span class="badge" style="background:var(--mint); color:#2E5C1A;">産休予定</span>'
-        : p.change_type === '休職'
-          ? '<span class="badge" style="background:var(--warn-bg); color:#8A5A1A;">休職</span>'
-          : '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">異動</span>';
-    return `<div class="store-row" style="padding:9px 4px; align-items:center;">
-      <div style="flex:1; min-width:160px;">
-        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-          <span class="store-name" style="font-size:13.5px;">${escapeHtml(p.person_name)}</span>
-          ${p.staff_number ? `<span style="color:var(--ink-soft); font-weight:500; font-size:11.5px;">(No.${escapeHtml(p.staff_number)})</span>` : ''}
-          ${typeBadge}
+  // 予定日の年月ごとにグループ化（未定は最後）
+  const groups = {};
+  const groupOrder = [];
+  list.forEach(p=>{
+    const key = p.change_date ? p.change_date.slice(0,7) : '未定';
+    if(!groups[key]){ groups[key] = []; groupOrder.push(key); }
+    groups[key].push(p);
+  });
+  groupOrder.sort((a,b)=>{
+    if(a==='未定') return 1;
+    if(b==='未定') return -1;
+    return a < b ? -1 : 1;
+  });
+
+  const monthLabel = (key)=>{
+    if(key === '未定') return '予定日未定';
+    const [y,m] = key.split('-');
+    return `${y}年${parseInt(m,10)}月`;
+  };
+
+  container.innerHTML = groupOrder.map(key=>{
+    const rows = groups[key].map(p=>{
+      const storeName = p.store_id ? (stores.find(s=>s.id===p.store_id)?.name || '（削除済み店舗）') : '未設定';
+      const destName = p.destination_store_id ? (stores.find(s=>s.id===p.destination_store_id)?.name || '（削除済み店舗）') : '';
+      const days = daysUntil(p.change_date);
+      let badge = '';
+      if(days !== null){
+        if(days < 0) badge = `<span class="badge badge-danger">${Math.abs(days)}日経過</span>`;
+        else if(days <= 14) badge = `<span class="badge badge-danger">あと${days}日</span>`;
+        else if(days <= 30) badge = `<span class="badge badge-warn">あと${days}日</span>`;
+        else badge = `<span class="badge badge-ok">あと${days}日</span>`;
+      }
+      const typeBadge = p.change_type === '退職予定'
+        ? '<span class="badge" style="background:var(--danger-bg); color:var(--danger);">退職予定</span>'
+        : p.change_type === '産休予定'
+          ? '<span class="badge" style="background:var(--mint); color:#2E5C1A;">産休予定</span>'
+          : p.change_type === '休職'
+            ? '<span class="badge" style="background:var(--warn-bg); color:#8A5A1A;">休職</span>'
+            : '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">異動</span>';
+      return `<div class="store-row" style="padding:9px 4px; align-items:center;">
+        <div style="flex:1; min-width:160px;">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span class="store-name" style="font-size:13.5px;">${escapeHtml(p.person_name)}</span>
+            ${p.staff_number ? `<span style="color:var(--ink-soft); font-weight:500; font-size:11.5px;">(No.${escapeHtml(p.staff_number)})</span>` : ''}
+            ${typeBadge}
+          </div>
+          <div class="store-meta" style="margin-top:3px;">${escapeHtml(storeName)}${destName ? ` → ${escapeHtml(destName)}` : ''}${p.change_date ? ` ・ ${p.change_date}` : ''}${p.notes ? ` ・ ${escapeHtml(p.notes)}` : ''}</div>
         </div>
-        <div class="store-meta" style="margin-top:3px;">${escapeHtml(storeName)}${destName ? ` → ${escapeHtml(destName)}` : ''}${p.change_date ? ` ・ ${p.change_date}` : ''}${p.notes ? ` ・ ${escapeHtml(p.notes)}` : ''}</div>
-      </div>
-      ${badge}
-      <button class="icon-btn" data-pedit="${p.id}">✏️</button>
-      <button class="icon-btn" data-pdel="${p.id}">🗑️</button>
+        ${badge}
+        <button class="icon-btn" data-pedit="${p.id}">✏️</button>
+        <button class="icon-btn" data-pdel="${p.id}">🗑️</button>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:14px;">
+      <div style="padding:6px 4px; border-bottom:2px solid var(--pink); margin-bottom:2px; font-size:14px; font-weight:700; color:var(--pink-deep); font-family:'Zen Maru Gothic', sans-serif;">${monthLabel(key)}</div>
+      ${rows}
     </div>`;
   }).join('');
 
