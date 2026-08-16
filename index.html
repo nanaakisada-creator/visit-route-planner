@@ -330,6 +330,7 @@
             <div class="chip selected" data-type="all">すべて</div>
             <div class="chip" data-type="退職予定">退職予定</div>
             <div class="chip" data-type="異動">異動</div>
+            <div class="chip" data-type="産休予定">産休予定</div>
           </div>
         </div>
       </div>
@@ -443,6 +444,7 @@
         <div class="chip-group" id="pTypeChips">
           <div class="chip selected" data-type="退職予定">退職予定</div>
           <div class="chip" data-type="異動">異動</div>
+          <div class="chip" data-type="産休予定">産休予定</div>
         </div>
       </div>
     </div>
@@ -460,8 +462,12 @@
     </div>
     <div class="row">
       <div>
-        <label>予定日</label>
+        <label id="pDateLabel">予定日</label>
         <input type="date" id="pDate">
+      </div>
+      <div id="pReturnDateCol" style="display:none;">
+        <label>復帰予定日</label>
+        <input type="date" id="pReturnDate">
       </div>
     </div>
     <div class="row">
@@ -622,6 +628,7 @@ create table personnel_changes (
   change_type text not null,
   change_date date,
   destination_store_id uuid references stores(id) on delete set null,
+  return_date date,
   notes text,
   created_at timestamptz default now()
 );
@@ -963,11 +970,13 @@ function renderPersonnelList(){
     }
     const typeBadge = p.change_type === '退職予定'
       ? '<span class="badge" style="background:var(--danger-bg); color:var(--danger);">退職予定</span>'
-      : '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">異動</span>';
+      : p.change_type === '産休予定'
+        ? '<span class="badge" style="background:var(--mint); color:#2E5C1A;">産休予定</span>'
+        : '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">異動</span>';
     return `<div class="store-row">
       <div style="flex:1;">
         <div class="store-name">${escapeHtml(p.person_name)}${p.staff_number ? ` <span style="color:var(--ink-soft); font-weight:500; font-size:12px;">(No.${escapeHtml(p.staff_number)})</span>` : ''} ${typeBadge}</div>
-        <div class="store-meta">${escapeHtml(storeName)}${destName ? ` → ${escapeHtml(destName)}` : ''}${p.change_date ? ` ・ 予定日: ${p.change_date}` : ''}</div>
+        <div class="store-meta">${escapeHtml(storeName)}${destName ? ` → ${escapeHtml(destName)}` : ''}${p.change_date ? ` ・ 予定日: ${p.change_date}` : ''}${p.return_date ? ` ・ 復帰予定: ${p.return_date}` : ''}</div>
         ${p.notes ? `<div class="store-meta">${escapeHtml(p.notes)}</div>` : ''}
       </div>
       ${badge}
@@ -996,9 +1005,12 @@ document.getElementById('pArea').addEventListener('change', ()=>{
   renderPersonnelStoreOptions(document.getElementById('pArea').value, null, 'pDestinationStore');
 });
 
-setupChips('pTypeChips', 'type', (v)=>{
-  document.getElementById('pDestinationRow').style.display = v === '異動' ? 'flex' : 'none';
-});
+function updatePersonnelFormFields(type){
+  document.getElementById('pDestinationRow').style.display = type === '異動' ? 'flex' : 'none';
+  document.getElementById('pReturnDateCol').style.display = type === '産休予定' ? 'block' : 'none';
+  document.getElementById('pDateLabel').textContent = type === '産休予定' ? '産休開始予定日' : '予定日';
+}
+setupChips('pTypeChips', 'type', (v)=>{ updatePersonnelFormFields(v); });
 
 function openPersonnelModal(id){
   document.getElementById('editPersonnelId').value = id || '';
@@ -1009,13 +1021,14 @@ function openPersonnelModal(id){
   const area = p ? p.area : (personnelAreaFilter !== 'all' ? personnelAreaFilter : '関西');
   document.getElementById('pArea').value = area;
   document.getElementById('pDate').value = p ? (p.change_date || '') : '';
+  document.getElementById('pReturnDate').value = p ? (p.return_date || '') : '';
   document.getElementById('pNotes').value = p ? (p.notes || '') : '';
 
   document.querySelectorAll('#pTypeChips .chip').forEach(c=>c.classList.remove('selected'));
   const type = p ? p.change_type : '退職予定';
   const typeChip = document.querySelector(`#pTypeChips .chip[data-type="${type}"]`);
   if(typeChip) typeChip.classList.add('selected');
-  document.getElementById('pDestinationRow').style.display = type === '異動' ? 'flex' : 'none';
+  updatePersonnelFormFields(type);
 
   renderPersonnelStoreOptions(area, p ? p.store_id : null, 'pStore');
   renderPersonnelStoreOptions(area, p ? p.destination_store_id : null, 'pDestinationStore');
@@ -1037,6 +1050,7 @@ document.getElementById('savePersonnelBtn').addEventListener('click', async ()=>
     store_id: document.getElementById('pStore').value || null,
     destination_store_id: selectedType === '異動' ? (document.getElementById('pDestinationStore').value || null) : null,
     change_date: document.getElementById('pDate').value || null,
+    return_date: selectedType === '産休予定' ? (document.getElementById('pReturnDate').value || null) : null,
     notes: document.getElementById('pNotes').value.trim(),
   };
   let error;
