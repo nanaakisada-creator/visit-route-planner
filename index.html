@@ -176,6 +176,7 @@
   <nav class="tabs">
     <button id="tabMonthlyBtn" class="active">月間プラン</button>
     <button id="tabReviewBtn">考査チェック</button>
+    <button id="tabPersonnelBtn">退職・異動</button>
     <button id="tabStoreBtn">店舗管理</button>
   </nav>
 
@@ -310,6 +311,33 @@
     </div>
   </section>
 
+  <!-- 退職・異動管理 -->
+  <section id="panelPersonnel" class="panel">
+    <div class="card">
+      <h2>退職予定者・異動者</h2>
+      <div class="row">
+        <div>
+          <label>エリア</label>
+          <div class="chip-group" id="personnelAreaChips">
+            <div class="chip selected" data-area="all">すべて</div>
+            <div class="chip" data-area="関西">関西</div>
+            <div class="chip" data-area="九州">九州</div>
+          </div>
+        </div>
+        <div>
+          <label>種別</label>
+          <div class="chip-group" id="personnelTypeChips">
+            <div class="chip selected" data-type="all">すべて</div>
+            <div class="chip" data-type="退職予定">退職予定</div>
+            <div class="chip" data-type="異動">異動</div>
+          </div>
+        </div>
+      </div>
+      <div id="personnelList"></div>
+    </div>
+    <button class="btn btn-mint" style="width:100%;" id="addPersonnelBtn">＋ 退職予定者・異動者を追加</button>
+  </section>
+
   <!-- 店舗管理 -->
   <section id="panelStore" class="panel">
     <div class="card">
@@ -387,6 +415,63 @@
   </div>
 </div>
 
+<!-- 退職予定者・異動者モーダル -->
+<div class="modal-bg" id="personnelModalBg">
+  <div class="modal">
+    <h2 id="personnelModalTitle">追加</h2>
+    <input type="hidden" id="editPersonnelId">
+    <div class="row">
+      <div>
+        <label>氏名</label>
+        <input type="text" id="pName" placeholder="山田花子">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>エリア</label>
+        <select id="pArea">
+          <option value="関西">関西</option>
+          <option value="九州">九州</option>
+        </select>
+      </div>
+      <div>
+        <label>種別</label>
+        <div class="chip-group" id="pTypeChips">
+          <div class="chip selected" data-type="退職予定">退職予定</div>
+          <div class="chip" data-type="異動">異動</div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>現在の店舗</label>
+        <select id="pStore"></select>
+      </div>
+    </div>
+    <div class="row" id="pDestinationRow" style="display:none;">
+      <div>
+        <label>異動先の店舗</label>
+        <select id="pDestinationStore"></select>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>予定日</label>
+        <input type="date" id="pDate">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>メモ</label>
+        <textarea id="pNotes" rows="2" placeholder="引き継ぎ状況など"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="cancelPersonnelBtn">キャンセル</button>
+      <button class="btn btn-primary" id="savePersonnelBtn">保存する</button>
+    </div>
+  </div>
+</div>
 
 <!-- 店舗追加・編集モーダル -->
 <div class="modal-bg" id="storeModalBg">
@@ -524,6 +609,20 @@ create table review_checks (
 alter table review_checks enable row level security;
 create policy "allow all" on review_checks for all using (true) with check (true);
 
+create table personnel_changes (
+  id uuid primary key default gen_random_uuid(),
+  area text not null,
+  store_id uuid references stores(id) on delete set null,
+  person_name text not null,
+  change_type text not null,
+  change_date date,
+  destination_store_id uuid references stores(id) on delete set null,
+  notes text,
+  created_at timestamptz default now()
+);
+alter table personnel_changes enable row level security;
+create policy "allow all" on personnel_changes for all using (true) with check (true);
+
 create table monthly_plans (
   id uuid primary key default gen_random_uuid(),
   area text not null,
@@ -646,16 +745,20 @@ document.getElementById('fMapUrl').addEventListener('input', (e)=>{
 // ---- タブ切替 ----
 document.getElementById('tabMonthlyBtn').addEventListener('click', ()=>switchTab('monthly'));
 document.getElementById('tabReviewBtn').addEventListener('click', ()=>switchTab('review'));
+document.getElementById('tabPersonnelBtn').addEventListener('click', ()=>switchTab('personnel'));
 document.getElementById('tabStoreBtn').addEventListener('click', ()=>switchTab('store'));
 function switchTab(tab){
   document.getElementById('panelMonthly').classList.toggle('active', tab==='monthly');
   document.getElementById('panelReview').classList.toggle('active', tab==='review');
+  document.getElementById('panelPersonnel').classList.toggle('active', tab==='personnel');
   document.getElementById('panelStore').classList.toggle('active', tab==='store');
   document.getElementById('tabMonthlyBtn').classList.toggle('active', tab==='monthly');
   document.getElementById('tabReviewBtn').classList.toggle('active', tab==='review');
+  document.getElementById('tabPersonnelBtn').classList.toggle('active', tab==='personnel');
   document.getElementById('tabStoreBtn').classList.toggle('active', tab==='store');
   if(tab==='store'){ renderStoreList(); renderRouteList(); }
   if(tab==='review'){ loadReviewChecks().then(renderReviewList); }
+  if(tab==='personnel'){ loadPersonnelChanges().then(renderPersonnelList); }
 }
 
 // ---- 月間プラン: サブタブ ----
@@ -811,6 +914,141 @@ async function updateReviewDate(storeId, dateVal){
   const { error } = await supabase.from('review_checks').upsert(payload, { onConflict: 'store_id,period' });
   if(error){ toast('更新エラー: ' + error.message); return; }
   await loadReviewChecks();
+}
+
+// ---- 退職・異動管理タブ ----
+let personnelChanges = [];
+let personnelAreaFilter = 'all';
+let personnelTypeFilter = 'all';
+setupChips('personnelAreaChips', 'area', (v)=>{ personnelAreaFilter = v; renderPersonnelList(); });
+setupChips('personnelTypeChips', 'type', (v)=>{ personnelTypeFilter = v; renderPersonnelList(); });
+
+async function loadPersonnelChanges(){
+  if(!supabase){ personnelChanges = []; return; }
+  const { data, error } = await supabase.from('personnel_changes').select('*').order('change_date', { ascending: true, nullsFirst: false });
+  if(error){ toast('読み込みエラー: ' + error.message); return; }
+  personnelChanges = data || [];
+}
+
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr);
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  return Math.round((d - now) / (1000*60*60*24));
+}
+
+function renderPersonnelList(){
+  const container = document.getElementById('personnelList');
+  let list = personnelChanges.slice();
+  if(personnelAreaFilter !== 'all') list = list.filter(p=>p.area===personnelAreaFilter);
+  if(personnelTypeFilter !== 'all') list = list.filter(p=>p.change_type===personnelTypeFilter);
+  if(list.length === 0){ container.innerHTML = '<div class="empty">該当する予定がありません</div>'; return; }
+
+  container.innerHTML = list.map(p=>{
+    const storeName = p.store_id ? (stores.find(s=>s.id===p.store_id)?.name || '（削除済み店舗）') : '未設定';
+    const destName = p.destination_store_id ? (stores.find(s=>s.id===p.destination_store_id)?.name || '（削除済み店舗）') : '';
+    const days = daysUntil(p.change_date);
+    let badge = '';
+    if(days !== null){
+      if(days < 0) badge = `<span class="badge badge-danger">${Math.abs(days)}日経過</span>`;
+      else if(days <= 14) badge = `<span class="badge badge-danger">あと${days}日</span>`;
+      else if(days <= 30) badge = `<span class="badge badge-warn">あと${days}日</span>`;
+      else badge = `<span class="badge badge-ok">あと${days}日</span>`;
+    }
+    const typeBadge = p.change_type === '退職予定'
+      ? '<span class="badge" style="background:var(--danger-bg); color:var(--danger);">退職予定</span>'
+      : '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">異動</span>';
+    return `<div class="store-row">
+      <div style="flex:1;">
+        <div class="store-name">${escapeHtml(p.person_name)} ${typeBadge}</div>
+        <div class="store-meta">${escapeHtml(storeName)}${destName ? ` → ${escapeHtml(destName)}` : ''}${p.change_date ? ` ・ 予定日: ${p.change_date}` : ''}</div>
+        ${p.notes ? `<div class="store-meta">${escapeHtml(p.notes)}</div>` : ''}
+      </div>
+      ${badge}
+      <button class="icon-btn" data-pedit="${p.id}">✏️</button>
+      <button class="icon-btn" data-pdel="${p.id}">🗑️</button>
+    </div>`;
+  }).join('');
+
+  container.querySelectorAll('[data-pedit]').forEach(b=>b.addEventListener('click', ()=>openPersonnelModal(b.dataset.pedit)));
+  container.querySelectorAll('[data-pdel]').forEach(b=>b.addEventListener('click', ()=>deletePersonnelChange(b.dataset.pdel)));
+}
+
+function renderPersonnelStoreOptions(area, selectedId, selectId){
+  const sel = document.getElementById(selectId);
+  const areaStores = stores.filter(s=>s.area===area).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  sel.innerHTML = '<option value="">未設定</option>' + areaStores.map(s=>`<option value="${s.id}" ${s.id===selectedId?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
+}
+
+document.getElementById('addPersonnelBtn').addEventListener('click', ()=>openPersonnelModal(null));
+document.getElementById('cancelPersonnelBtn').addEventListener('click', ()=>{
+  document.getElementById('personnelModalBg').classList.remove('active');
+});
+
+document.getElementById('pArea').addEventListener('change', ()=>{
+  renderPersonnelStoreOptions(document.getElementById('pArea').value, null, 'pStore');
+  renderPersonnelStoreOptions(document.getElementById('pArea').value, null, 'pDestinationStore');
+});
+
+setupChips('pTypeChips', 'type', (v)=>{
+  document.getElementById('pDestinationRow').style.display = v === '異動' ? 'flex' : 'none';
+});
+
+function openPersonnelModal(id){
+  document.getElementById('editPersonnelId').value = id || '';
+  const p = id ? personnelChanges.find(x=>x.id===id) : null;
+  document.getElementById('personnelModalTitle').textContent = id ? '編集' : '追加';
+  document.getElementById('pName').value = p ? p.person_name : '';
+  const area = p ? p.area : (personnelAreaFilter !== 'all' ? personnelAreaFilter : '関西');
+  document.getElementById('pArea').value = area;
+  document.getElementById('pDate').value = p ? (p.change_date || '') : '';
+  document.getElementById('pNotes').value = p ? (p.notes || '') : '';
+
+  document.querySelectorAll('#pTypeChips .chip').forEach(c=>c.classList.remove('selected'));
+  const type = p ? p.change_type : '退職予定';
+  const typeChip = document.querySelector(`#pTypeChips .chip[data-type="${type}"]`);
+  if(typeChip) typeChip.classList.add('selected');
+  document.getElementById('pDestinationRow').style.display = type === '異動' ? 'flex' : 'none';
+
+  renderPersonnelStoreOptions(area, p ? p.store_id : null, 'pStore');
+  renderPersonnelStoreOptions(area, p ? p.destination_store_id : null, 'pDestinationStore');
+
+  document.getElementById('personnelModalBg').classList.add('active');
+}
+
+document.getElementById('savePersonnelBtn').addEventListener('click', async ()=>{
+  if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
+  const id = document.getElementById('editPersonnelId').value;
+  const name = document.getElementById('pName').value.trim();
+  if(!name){ toast('氏名を入力してください'); return; }
+  const selectedType = document.querySelector('#pTypeChips .chip.selected')?.dataset.type || '退職予定';
+  const payload = {
+    person_name: name,
+    area: document.getElementById('pArea').value,
+    change_type: selectedType,
+    store_id: document.getElementById('pStore').value || null,
+    destination_store_id: selectedType === '異動' ? (document.getElementById('pDestinationStore').value || null) : null,
+    change_date: document.getElementById('pDate').value || null,
+    notes: document.getElementById('pNotes').value.trim(),
+  };
+  let error;
+  if(id){ ({error} = await supabase.from('personnel_changes').update(payload).eq('id', id)); }
+  else { ({error} = await supabase.from('personnel_changes').insert(payload)); }
+  if(error){ toast('保存エラー: ' + error.message); return; }
+  toast('保存しました');
+  document.getElementById('personnelModalBg').classList.remove('active');
+  await loadPersonnelChanges();
+  renderPersonnelList();
+});
+
+async function deletePersonnelChange(id){
+  if(!confirm('この予定を削除しますか？')) return;
+  const { error } = await supabase.from('personnel_changes').delete().eq('id', id);
+  if(error){ toast('削除エラー: ' + error.message); return; }
+  toast('削除しました');
+  await loadPersonnelChanges();
+  renderPersonnelList();
 }
 
 function renderStoreList(){
