@@ -332,6 +332,7 @@
             <div class="chip" data-type="退職予定">退職予定</div>
             <div class="chip" data-type="異動">異動</div>
             <div class="chip" data-type="産休予定">産休予定</div>
+            <div class="chip" data-type="休職">休職</div>
           </div>
         </div>
       </div>
@@ -446,6 +447,7 @@
           <div class="chip selected" data-type="退職予定">退職予定</div>
           <div class="chip" data-type="異動">異動</div>
           <div class="chip" data-type="産休予定">産休予定</div>
+          <div class="chip" data-type="休職">休職</div>
         </div>
       </div>
     </div>
@@ -968,7 +970,9 @@ function renderPersonnelList(){
       ? '<span class="badge" style="background:var(--danger-bg); color:var(--danger);">退職予定</span>'
       : p.change_type === '産休予定'
         ? '<span class="badge" style="background:var(--mint); color:#2E5C1A;">産休予定</span>'
-        : '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">異動</span>';
+        : p.change_type === '休職'
+          ? '<span class="badge" style="background:var(--warn-bg); color:#8A5A1A;">休職</span>'
+          : '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">異動</span>';
     return `<div class="store-row" style="flex-direction:column; align-items:stretch;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div class="store-name">${escapeHtml(p.person_name)}${p.staff_number ? ` <span style="color:var(--ink-soft); font-weight:500; font-size:12px;">(No.${escapeHtml(p.staff_number)})</span>` : ''}</div>
@@ -1006,7 +1010,7 @@ document.getElementById('pArea').addEventListener('change', ()=>{
 
 function updatePersonnelFormFields(type){
   document.getElementById('pDestinationRow').style.display = type === '異動' ? 'flex' : 'none';
-  document.getElementById('pDateLabel').textContent = type === '産休予定' ? '産休開始予定日' : '予定日';
+  document.getElementById('pDateLabel').textContent = type === '産休予定' ? '産休開始予定日' : (type === '休職' ? '休職開始日' : '予定日');
 }
 setupChips('pTypeChips', 'type', (v)=>{ updatePersonnelFormFields(v); });
 
