@@ -75,10 +75,10 @@
   .panel{display:none;}
   .panel.active{display:block;}
   .card{
-    background:var(--card); border-radius:20px; padding:18px 20px;
-    box-shadow:var(--shadow); margin-bottom:16px;
+    background:var(--card); border-radius:20px; padding:20px 22px;
+    box-shadow:var(--shadow); margin-bottom:18px;
   }
-  .card h2{font-size:16px; color:var(--pink-deep); margin-bottom:12px; display:flex; align-items:center; gap:6px;}
+  .card h2{font-size:16px; color:var(--pink-deep); margin-bottom:14px; display:flex; align-items:center; gap:6px;}
   .row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;}
   .row > *{flex:1; min-width:110px;}
   label{font-size:12px; color:var(--ink-soft); font-weight:500; display:block; margin-bottom:4px;}
@@ -104,12 +104,13 @@
   }
   .chip.selected{background:var(--lavender); border-color:var(--lavender-deep); color:#fff;}
   .store-row{
-    display:flex; align-items:center; gap:10px; padding:12px 0;
+    display:flex; align-items:center; flex-wrap:wrap; gap:10px 12px; padding:14px 4px;
     border-bottom:1px solid var(--line);
   }
   .store-row:last-child{border-bottom:none;}
-  .store-name{font-weight:700; font-size:14px;}
-  .store-meta{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .badge-row{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+  .store-name{font-weight:700; font-size:14.5px; line-height:1.4;}
+  .store-meta{font-size:12.5px; color:var(--ink-soft); margin-top:4px; line-height:1.6;}
   .badge{
     font-size:11px; font-weight:700; padding:3px 9px; border-radius:10px; white-space:nowrap;
   }
@@ -968,15 +969,18 @@ function renderPersonnelList(){
       : p.change_type === '産休予定'
         ? '<span class="badge" style="background:var(--mint); color:#2E5C1A;">産休予定</span>'
         : '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">異動</span>';
-    return `<div class="store-row">
-      <div style="flex:1;">
-        <div class="store-name">${escapeHtml(p.person_name)}${p.staff_number ? ` <span style="color:var(--ink-soft); font-weight:500; font-size:12px;">(No.${escapeHtml(p.staff_number)})</span>` : ''} ${typeBadge}</div>
-        <div class="store-meta">${escapeHtml(storeName)}${destName ? ` → ${escapeHtml(destName)}` : ''}${p.change_date ? ` ・ 予定日: ${p.change_date}` : ''}</div>
-        ${p.notes ? `<div class="store-meta">${escapeHtml(p.notes)}</div>` : ''}
+    return `<div class="store-row" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <div class="store-name">${escapeHtml(p.person_name)}${p.staff_number ? ` <span style="color:var(--ink-soft); font-weight:500; font-size:12px;">(No.${escapeHtml(p.staff_number)})</span>` : ''}</div>
+        ${badge}
       </div>
-      ${badge}
-      <button class="icon-btn" data-pedit="${p.id}">✏️</button>
-      <button class="icon-btn" data-pdel="${p.id}">🗑️</button>
+      <div class="badge-row">${typeBadge}</div>
+      <div class="store-meta">${escapeHtml(storeName)}${destName ? ` → ${escapeHtml(destName)}` : ''}${p.change_date ? ` ・ 予定日: ${p.change_date}` : ''}</div>
+      ${p.notes ? `<div class="store-meta">${escapeHtml(p.notes)}</div>` : ''}
+      <div style="display:flex; justify-content:flex-end; gap:4px; margin-top:6px;">
+        <button class="icon-btn" data-pedit="${p.id}">✏️</button>
+        <button class="icon-btn" data-pdel="${p.id}">🗑️</button>
+      </div>
     </div>`;
   }).join('');
 
@@ -1073,23 +1077,24 @@ function renderStoreList(){
   container.innerHTML = filtered.map(s=>{
     const p = priorityInfo(s);
     const label = p.days===null ? '未訪店' : p.label;
-    return `<div class="store-row">
-      <div style="flex:1;">
+    return `<div class="store-row" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
         <div class="store-name">${escapeHtml(s.name)}</div>
-        <div class="store-meta">${escapeHtml(s.prefecture||'')}・${escapeHtml(s.address||'住所未登録')}${s.line_tag ? ` ・ 🚃${escapeHtml(s.line_tag)}` : ''}</div>
-        <div class="store-meta">最終訪店: ${label}${(s.lat&&s.lng)?'':' ・ 📍座標未登録'}</div>
-        <div class="store-meta">
-          ${s.has_manager ? '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">👔店長</span> ' : ''}
-          ${s.has_chief ? '<span class="badge" style="background:var(--pink); color:#fff;">🎖️チーフ</span> ' : ''}
-        </div>
+        <span class="badge ${p.badge}" style="flex-shrink:0;">${p.badge==='badge-danger'?'要訪問':(p.badge==='badge-warn'?'そろそろ':'OK')}</span>
       </div>
-      <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-end;">
+      <div class="store-meta">${escapeHtml(s.prefecture||'')}・${escapeHtml(s.address||'住所未登録')}</div>
+      ${s.line_tag ? `<div class="store-meta">🚃${escapeHtml(s.line_tag)}</div>` : ''}
+      <div class="store-meta">最終訪店: ${label}${(s.lat&&s.lng)?'':' ・ 📍座標未登録'}</div>
+      <div class="badge-row">
         ${freqBadgeHtml(s.visit_interval_days||30)}
-        <span class="badge ${p.badge}">${p.badge==='badge-danger'?'要訪問':(p.badge==='badge-warn'?'そろそろ':'OK')}</span>
+        ${s.has_manager ? '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">👔店長</span>' : ''}
+        ${s.has_chief ? '<span class="badge" style="background:var(--pink); color:#fff;">🎖️チーフ</span>' : ''}
       </div>
-      <button class="icon-btn" data-edit="${s.id}">✏️</button>
-      <button class="icon-btn" data-visited="${s.id}">✅</button>
-      <button class="icon-btn" data-del="${s.id}">🗑️</button>
+      <div style="display:flex; justify-content:flex-end; gap:4px; margin-top:6px;">
+        <button class="icon-btn" data-edit="${s.id}">✏️</button>
+        <button class="icon-btn" data-visited="${s.id}">✅</button>
+        <button class="icon-btn" data-del="${s.id}">🗑️</button>
+      </div>
     </div>`;
   }).join('');
   container.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openStoreModal(b.dataset.edit)));
@@ -1411,16 +1416,18 @@ function renderCandidateList(endOfMonth){
       const inRoute = areaRouteStoreIds.has(s.id);
       const checked = state.monthly.roleFilter === 'role' ? true : due;
       return `<div class="store-row">
-        <input type="checkbox" class="candCheck" data-id="${s.id}" ${checked?'checked':''} style="width:auto;">
-        <div style="flex:1;">
+        <input type="checkbox" class="candCheck" data-id="${s.id}" ${checked?'checked':''} style="width:auto; flex-shrink:0;">
+        <div style="flex:1; min-width:160px;">
           <div class="store-name">${escapeHtml(s.name)}</div>
-          <div class="store-meta">${escapeHtml(s.prefecture||'')} ・ 目安訪店期限: ${s._due.toISOString().slice(0,10)}</div>
+          <div class="store-meta">${escapeHtml(s.prefecture||'')} ・ 期限: ${s._due.toISOString().slice(0,10)}</div>
+          <div class="badge-row">
+            ${freqBadgeHtml(s.visit_interval_days||30)}
+            ${s.has_manager ? '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">👔店長</span>' : ''}
+            ${s.has_chief ? '<span class="badge" style="background:var(--pink); color:#fff;">🎖️チーフ</span>' : ''}
+            ${inRoute ? '<span class="badge badge-ok">🔗固定ルート</span>' : ''}
+            ${noCoord ? '<span class="badge badge-none">座標なし</span>' : ''}
+          </div>
         </div>
-        ${freqBadgeHtml(s.visit_interval_days||30)}
-        ${s.has_manager ? '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">👔店長</span>' : ''}
-        ${s.has_chief ? '<span class="badge" style="background:var(--pink); color:#fff;">🎖️チーフ</span>' : ''}
-        ${inRoute ? '<span class="badge badge-ok">🔗固定ルート</span>' : ''}
-        ${noCoord ? '<span class="badge badge-none">座標なし</span>' : ''}
       </div>`;
     }).join('');
   }
