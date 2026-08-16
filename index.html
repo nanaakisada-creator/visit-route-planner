@@ -328,8 +328,7 @@
         <div>
           <label>種別</label>
           <div class="chip-group" id="personnelTypeChips">
-            <div class="chip selected" data-type="all">すべて</div>
-            <div class="chip" data-type="退職予定">退職予定</div>
+            <div class="chip selected" data-type="退職予定">退職予定</div>
             <div class="chip" data-type="異動">異動</div>
             <div class="chip" data-type="産休予定">産休予定</div>
             <div class="chip" data-type="休職">休職</div>
@@ -929,7 +928,7 @@ async function updateReviewDate(storeId, dateVal){
 // ---- 退職・異動管理タブ ----
 let personnelChanges = [];
 let personnelAreaFilter = 'all';
-let personnelTypeFilter = 'all';
+let personnelTypeFilter = '退職予定';
 setupChips('personnelAreaChips', 'area', (v)=>{ personnelAreaFilter = v; renderPersonnelList(); });
 setupChips('personnelTypeChips', 'type', (v)=>{ personnelTypeFilter = v; renderPersonnelList(); });
 
