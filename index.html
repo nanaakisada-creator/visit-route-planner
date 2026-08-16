@@ -425,6 +425,10 @@
         <label>氏名</label>
         <input type="text" id="pName" placeholder="山田花子">
       </div>
+      <div>
+        <label>スタッフ番号</label>
+        <input type="text" id="pStaffNumber" placeholder="例: 12345">
+      </div>
     </div>
     <div class="row">
       <div>
@@ -614,6 +618,7 @@ create table personnel_changes (
   area text not null,
   store_id uuid references stores(id) on delete set null,
   person_name text not null,
+  staff_number text,
   change_type text not null,
   change_date date,
   destination_store_id uuid references stores(id) on delete set null,
@@ -961,7 +966,7 @@ function renderPersonnelList(){
       : '<span class="badge" style="background:var(--lavender); color:var(--lavender-deep);">異動</span>';
     return `<div class="store-row">
       <div style="flex:1;">
-        <div class="store-name">${escapeHtml(p.person_name)} ${typeBadge}</div>
+        <div class="store-name">${escapeHtml(p.person_name)}${p.staff_number ? ` <span style="color:var(--ink-soft); font-weight:500; font-size:12px;">(No.${escapeHtml(p.staff_number)})</span>` : ''} ${typeBadge}</div>
         <div class="store-meta">${escapeHtml(storeName)}${destName ? ` → ${escapeHtml(destName)}` : ''}${p.change_date ? ` ・ 予定日: ${p.change_date}` : ''}</div>
         ${p.notes ? `<div class="store-meta">${escapeHtml(p.notes)}</div>` : ''}
       </div>
@@ -1000,6 +1005,7 @@ function openPersonnelModal(id){
   const p = id ? personnelChanges.find(x=>x.id===id) : null;
   document.getElementById('personnelModalTitle').textContent = id ? '編集' : '追加';
   document.getElementById('pName').value = p ? p.person_name : '';
+  document.getElementById('pStaffNumber').value = p ? (p.staff_number || '') : '';
   const area = p ? p.area : (personnelAreaFilter !== 'all' ? personnelAreaFilter : '関西');
   document.getElementById('pArea').value = area;
   document.getElementById('pDate').value = p ? (p.change_date || '') : '';
@@ -1025,6 +1031,7 @@ document.getElementById('savePersonnelBtn').addEventListener('click', async ()=>
   const selectedType = document.querySelector('#pTypeChips .chip.selected')?.dataset.type || '退職予定';
   const payload = {
     person_name: name,
+    staff_number: document.getElementById('pStaffNumber').value.trim() || null,
     area: document.getElementById('pArea').value,
     change_type: selectedType,
     store_id: document.getElementById('pStore').value || null,
