@@ -997,6 +997,15 @@ function renderPersonnelStoreOptions(area, selectedId, selectId){
   sel.innerHTML = '<option value="">未設定</option>' + areaStores.map(s=>`<option value="${s.id}" ${s.id===selectedId?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
 }
 
+// 異動先は現在のエリアに関係なく、関西・九州どちらの店舗も選べるようにする
+function renderDestinationStoreOptions(selectedId){
+  const sel = document.getElementById('pDestinationStore');
+  const kansai = stores.filter(s=>s.area==='関西').sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  const kyushu = stores.filter(s=>s.area==='九州').sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  const optGroup = (label, list) => `<optgroup label="${label}">${list.map(s=>`<option value="${s.id}" ${s.id===selectedId?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}</optgroup>`;
+  sel.innerHTML = '<option value="">未設定</option>' + optGroup('関西', kansai) + optGroup('九州', kyushu);
+}
+
 document.getElementById('addPersonnelBtn').addEventListener('click', ()=>openPersonnelModal(null));
 document.getElementById('cancelPersonnelBtn').addEventListener('click', ()=>{
   document.getElementById('personnelModalBg').classList.remove('active');
@@ -1004,7 +1013,7 @@ document.getElementById('cancelPersonnelBtn').addEventListener('click', ()=>{
 
 document.getElementById('pArea').addEventListener('change', ()=>{
   renderPersonnelStoreOptions(document.getElementById('pArea').value, null, 'pStore');
-  renderPersonnelStoreOptions(document.getElementById('pArea').value, null, 'pDestinationStore');
+  renderDestinationStoreOptions(null);
 });
 
 function updatePersonnelFormFields(type){
@@ -1031,7 +1040,7 @@ function openPersonnelModal(id){
   updatePersonnelFormFields(type);
 
   renderPersonnelStoreOptions(area, p ? p.store_id : null, 'pStore');
-  renderPersonnelStoreOptions(area, p ? p.destination_store_id : null, 'pDestinationStore');
+  renderDestinationStoreOptions(p ? p.destination_store_id : null);
 
   document.getElementById('personnelModalBg').classList.add('active');
 }
