@@ -1631,6 +1631,8 @@ function renderGroupResult(){
 
   let html = '';
   let lastStaff = null;
+  const areaStores = stores.filter(s=>s.area===state.monthly.area).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  const usedIds = new Set(state.monthly.groups.flat().map(s=>s.id));
   indices.forEach(gi=>{
     const g = state.monthly.groups[gi];
     const currentStaff = staffKey(gi);
@@ -1652,8 +1654,10 @@ function renderGroupResult(){
           <div class="store-meta">${escapeHtml(s.prefecture||'')}${isNonRole ? ' ・ ペア相方（役職者なし）' : ''}</div>
         </div>
         <select class="moveSelect" data-store="${s.id}" data-group="${gi}">${groupOptions}</select>
+        <button class="icon-btn" data-drop-store="1" data-group="${gi}" data-store="${s.id}">🗑️</button>
       </div>`;
     }).join('') || '<div class="empty">店舗未割当</div>';
+    const addOptions = areaStores.filter(s=>!usedIds.has(s.id)).map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
     html += `<div class="card" style="background:#F6FBFD; margin-bottom:12px;">
       <div class="row">
         <div>
@@ -1669,9 +1673,18 @@ function renderGroupResult(){
         </div>
       </div>
       ${rows}
+      <div class="row" style="margin-top:8px;">
+        <select class="groupAddStoreSelect" data-group="${gi}" style="flex:2;">
+          <option value="">＋ 店舗を追加...</option>
+          ${addOptions}
+        </select>
+        <button class="btn btn-outline btn-sm" data-add-store-group="${gi}">追加</button>
+      </div>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px; width:100%;" data-remove-group="${gi}">この日を削除</button>
     </div>`;
   });
   if(lastStaff !== null) html += '</div>';
+  html += `<button class="btn btn-outline" style="width:100%; margin-bottom:6px;" id="addGroupDayBtn">＋ 日を追加</button>`;
   container.innerHTML = html;
 
   container.querySelectorAll('.moveSelect').forEach(sel=>{
@@ -1693,6 +1706,43 @@ function renderGroupResult(){
       renderGroupResult();
     });
   });
+  container.querySelectorAll('[data-drop-store]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const gi = parseInt(btn.dataset.group);
+      state.monthly.groups[gi] = state.monthly.groups[gi].filter(s=>s.id !== btn.dataset.store);
+      renderGroupResult();
+    });
+  });
+  container.querySelectorAll('[data-add-store-group]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const gi = parseInt(btn.dataset.addStoreGroup);
+      const sel = container.querySelector(`.groupAddStoreSelect[data-group="${gi}"]`);
+      const sid = sel.value;
+      if(!sid) return;
+      const full = stores.find(x=>x.id===sid);
+      if(full) state.monthly.groups[gi].push(full);
+      renderGroupResult();
+    });
+  });
+  container.querySelectorAll('[data-remove-group]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const gi = parseInt(btn.dataset.removeGroup);
+      if(state.monthly.groups[gi].length > 0 && !confirm('この日を削除しますか？（中の店舗もこのプランから外れます）')) return;
+      state.monthly.groups.splice(gi, 1);
+      state.monthly.groupDates.splice(gi, 1);
+      state.monthly.groupStaff.splice(gi, 1);
+      renderGroupResult();
+    });
+  });
+  const addDayBtn = document.getElementById('addGroupDayBtn');
+  if(addDayBtn){
+    addDayBtn.addEventListener('click', ()=>{
+      state.monthly.groups.push([]);
+      state.monthly.groupDates.push('');
+      state.monthly.groupStaff.push('');
+      renderGroupResult();
+    });
+  }
   document.getElementById('groupResultCard').style.display = 'block';
 }
 
