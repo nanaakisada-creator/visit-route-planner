@@ -1427,7 +1427,17 @@ document.getElementById('extractBtn').addEventListener('click', ()=>{
   state.monthly.month = monthVal;
   state.monthly._endOfMonth = endOfMonth;
   const areaStores = stores.filter(s=>s.area===state.monthly.area);
-  const withDue = areaStores.map(s=>({...s, _due: computeDueDate(s)}));
+  // 月2回店舗（訪店サイクル15日以下）は、その月に2回分の候補枠として出す
+  const withDue = areaStores.flatMap(s=>{
+    const due = computeDueDate(s);
+    if((s.visit_interval_days||30) <= 15){
+      return [
+        {...s, _due: due, _instanceId: s.id + '__1', _instanceLabel: '1回目'},
+        {...s, _due: due, _instanceId: s.id + '__2', _instanceLabel: '2回目'},
+      ];
+    }
+    return [{...s, _due: due, _instanceId: s.id, _instanceLabel: null}];
+  });
   withDue.sort((a,b)=>a._due-b._due);
   state.monthly.candidateAll = withDue;
   renderCandidateList(endOfMonth);
@@ -1449,9 +1459,9 @@ function renderCandidateList(endOfMonth){
       const inRoute = areaRouteStoreIds.has(s.id);
       const checked = state.monthly.roleFilter === 'role' ? true : due;
       return `<div class="store-row">
-        <input type="checkbox" class="candCheck" data-id="${s.id}" ${checked?'checked':''} style="width:auto; flex-shrink:0;">
+        <input type="checkbox" class="candCheck" data-id="${s._instanceId}" ${checked?'checked':''} style="width:auto; flex-shrink:0;">
         <div style="flex:1; min-width:160px;">
-          <div class="store-name">${escapeHtml(s.name)}</div>
+          <div class="store-name">${escapeHtml(s.name)}${s._instanceLabel ? ` <span style="color:var(--pink-deep); font-size:11.5px; font-weight:700;">（${s._instanceLabel}）</span>` : ''}</div>
           <div class="store-meta">${escapeHtml(s.prefecture||'')} ・ 期限: ${s._due.toISOString().slice(0,10)}</div>
           <div class="badge-row">
             ${freqBadgeHtml(s.visit_interval_days||30)}
@@ -1520,9 +1530,26 @@ function assignMissingStaff(groupStaffArr){
   });
 }
 
+// 同じ店舗（月2回訪店の2枠）が同じ日でペアにならないよう避けながら2つずつ組む
+function pairUpAvoidingSelf(list){
+  const remaining = list.slice();
+  const pairs = [];
+  while(remaining.length >= 2){
+    const a = remaining.shift();
+    let idx = remaining.findIndex(x=>x.id !== a.id);
+    if(idx === -1){
+      // 残り全部が同じ店舗（通常起きない）。これ以上ペアにできないので孤立扱いにする
+      return { pairs, orphans: [a, ...remaining] };
+    }
+    const b = remaining.splice(idx, 1)[0];
+    pairs.push([a, b]);
+  }
+  return { pairs, orphans: remaining };
+}
+
 document.getElementById('groupBtn').addEventListener('click', ()=>{
   const checkedIds = [...document.querySelectorAll('.candCheck:checked')].map(cb=>cb.dataset.id);
-  let candidates = state.monthly.candidateAll.filter(s=>checkedIds.includes(s.id));
+  let candidates = state.monthly.candidateAll.filter(s=>checkedIds.includes(s._instanceId));
 
   // 店舗ごとに「所属している固定ルート（複数可）」を調べる
   const areaRoutes = routes.filter(r=>r.area===state.monthly.area);
@@ -1564,18 +1591,23 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
   const pairs = [];
   let orphans = [];
   Object.values(byArea).forEach(list=>{
-    for(let i=0; i+1<list.length; i+=2){
-      pairs.push([list[i], list[i+1]]);
-    }
-    if(list.length % 2 === 1) orphans.push(list[list.length-1]);
+    const result = pairUpAvoidingSelf(list);
+    pairs.push(...result.pairs);
+    orphans.push(...result.orphans);
   });
-  // 沿線が違っても、余った1店舗同士でペアを作る
-  for(let i=0; i+1<orphans.length; i+=2){
-    pairs.push([orphans[i], orphans[i+1]]);
-  }
+  // 沿線が違っても、余った1店舗同士でペアを作る（同一店舗同士は避ける）
+  const orphanResult = pairUpAvoidingSelf(orphans);
+  pairs.push(...orphanResult.pairs);
+  orphans = orphanResult.orphans;
   let leftoverSingle = null;
-  if(orphans.length % 2 === 1){
-    leftoverSingle = orphans[orphans.length-1];
+  if(orphans.length === 1){
+    leftoverSingle = orphans[0];
+  } else if(orphans.length > 1){
+    // 万一まだ複数残っていたら（全部同じ店舗などのレアケース）、順番にどこかへ合流させる
+    orphans.forEach(o=>{
+      if(pairs.length > 0) pairs[pairs.length-1].push(o);
+      else leftoverSingle = o;
+    });
   }
 
   // どうしても1店舗だけ余る場合は、既存のペアのどれかに合流させて3店舗の日にする（最後の手段）
