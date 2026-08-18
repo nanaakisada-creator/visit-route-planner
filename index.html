@@ -197,10 +197,6 @@
             <label>対象月</label>
             <input type="month" id="planMonth">
           </div>
-          <div>
-            <label>訪店日数</label>
-            <input type="number" id="planDays" value="8" min="1" max="31">
-          </div>
         </div>
         <div class="row">
           <div>
@@ -1429,7 +1425,6 @@ document.getElementById('extractBtn').addEventListener('click', ()=>{
   const [y,m] = monthVal.split('-').map(Number);
   const endOfMonth = new Date(y, m, 0);
   state.monthly.month = monthVal;
-  state.monthly.days = parseInt(document.getElementById('planDays').value) || 8;
   state.monthly._endOfMonth = endOfMonth;
   const areaStores = stores.filter(s=>s.area===state.monthly.area);
   const withDue = areaStores.map(s=>({...s, _due: computeDueDate(s)}));
@@ -1530,7 +1525,6 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
   let candidates = state.monthly.candidateAll.filter(s=>checkedIds.includes(s.id));
 
   // 店舗ごとに「所属している固定ルート（複数可）」を調べる
-  // 月2回店舗などは秋定ルート・林ルート両方に入っていて、それぞれ別の訪店として成立する
   const areaRoutes = routes.filter(r=>r.area===state.monthly.area);
   const routesByStore = {};
   areaRoutes.forEach(r=>{
@@ -1540,7 +1534,6 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
     });
   });
 
-  // 候補の中で固定ルートに触れているものから、そのルートを丸ごと採用する
   const touchedRouteIds = new Set();
   candidates.forEach(s=>{
     (routesByStore[s.id] || []).forEach(rid=>touchedRouteIds.add(rid));
@@ -1555,54 +1548,58 @@ document.getElementById('groupBtn').addEventListener('click', ()=>{
       members: (route.store_ids||[]).map(sid=>findStore(sid)).filter(Boolean),
     };
   });
-  const fixedClusters = fixedClusterData.map(x=>x.members);
 
   // どの固定ルートにも一切属さない候補だけが「自由店舗」
   const freeCandidates = candidates.filter(s=>!(routesByStore[s.id] && routesByStore[s.id].length));
 
-  if(fixedClusters.length === 0 && freeCandidates.length === 0){ toast('候補店舗がありません'); return; }
+  if(fixedClusterData.length === 0 && freeCandidates.length === 0){ toast('候補店舗がありません'); return; }
 
-  const freeWithCoord = freeCandidates.filter(s=>s.lat && s.lng);
-  const freeNoCoord = freeCandidates.filter(s=>!s.lat || !s.lng);
+  // 自由店舗を沿線タグ（無ければ都道府県）でまとめ、同じ沿線内で2店舗ずつペアにする
+  const byArea = {};
+  freeCandidates.forEach(s=>{
+    const key = s.line_tag || s.prefecture || '未設定';
+    if(!byArea[key]) byArea[key] = [];
+    byArea[key].push(s);
+  });
+  const pairs = [];
+  let orphans = [];
+  Object.values(byArea).forEach(list=>{
+    for(let i=0; i+1<list.length; i+=2){
+      pairs.push([list[i], list[i+1]]);
+    }
+    if(list.length % 2 === 1) orphans.push(list[list.length-1]);
+  });
+  // 沿線が違っても、余った1店舗同士でペアを作る
+  for(let i=0; i+1<orphans.length; i+=2){
+    pairs.push([orphans[i], orphans[i+1]]);
+  }
+  let leftoverSingle = null;
+  if(orphans.length % 2 === 1){
+    leftoverSingle = orphans[orphans.length-1];
+  }
 
-  const k = state.monthly.days;
-  const remaining = k - fixedClusters.length;
-  let freeClusters = [];
-  if(freeWithCoord.length){
-    if(remaining > 0){
-      freeClusters = kmeansCluster(freeWithCoord, Math.min(remaining, freeWithCoord.length));
+  // どうしても1店舗だけ余る場合は、既存のペアのどれかに合流させて3店舗の日にする（最後の手段）
+  if(leftoverSingle){
+    if(pairs.length > 0){
+      pairs[pairs.length-1].push(leftoverSingle);
+      toast('店舗数が奇数だったため、1店舗だけ既存の日に合流させました（その日だけ3店舗になります）');
+    } else if(fixedClusterData.length > 0){
+      fixedClusterData[fixedClusterData.length-1].members.push(leftoverSingle);
+      toast('店舗数が奇数だったため、1店舗だけ既存の日に合流させました（その日だけ3店舗になります）');
     } else {
-      freeClusters = [freeWithCoord];
+      pairs.push([leftoverSingle]);
+      toast('ペアにできる相手がいなかったため、1店舗だけの日になりました');
     }
   }
-  // 座標未登録の自由店舗は、都道府県ごとにだいたい2店舗ずつのグループとして追加
-  if(freeNoCoord.length){
-    freeClusters = [...freeClusters, ...fallbackClusterNoCoord(freeNoCoord, 2)];
-    toast(`座標未登録の${freeNoCoord.length}店舗は都道府県ベースで仮グループ化しました。Googleマップのリンクを登録すると近さで並べ替えられます`);
-  }
-
-  state.monthly.groups = [...fixedClusters, ...freeClusters].map(g=>orderGroup(g).order);
-  state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
-  state.monthly.groupStaff = state.monthly.groups.map((_, i)=> i < fixedClusterData.length ? (fixedClusterData[i].staff || '') : '');
 
   const allClusters = fixedClusterData.map(x=>({ stores: x.members, staff: x.staff || '' }))
-    .concat(freeClusters.map(g=>({ stores: g, staff: '' })));
+    .concat(pairs.map(g=>({ stores: g, staff: '' })));
 
-  if(allClusters.length > k){
-    const capped = capGroupsToK(allClusters, k);
-    state.monthly.groups = capped.map(c=>orderGroup(c.stores).order);
-    state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
-    state.monthly.groupStaff = assignMissingStaff(capped.map(c=>c.staff || ''));
-    if(capped.length > k){
-      toast(`1日3店舗までの上限があるため、指定日数（${k}日）には収まらず${capped.length}日になりました`);
-    } else {
-      toast(`指定日数（${k}日）に収まるよう、いくつかの日をまとめました`);
-    }
-  } else {
-    state.monthly.groups = allClusters.map(c=>orderGroup(c.stores).order);
-    state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
-    state.monthly.groupStaff = assignMissingStaff(allClusters.map(c=>c.staff || ''));
-  }
+  state.monthly.groups = allClusters.map(c=>orderGroup(c.stores).order);
+  state.monthly.groupDates = new Array(state.monthly.groups.length).fill('');
+  state.monthly.groupStaff = assignMissingStaff(allClusters.map(c=>c.staff || ''));
+
+  toast(`店舗数（${candidates.length}件）に応じて、${state.monthly.groups.length}日分に組みました`);
   renderGroupResult();
 });
 
@@ -1705,7 +1702,7 @@ document.getElementById('savePlanBtn').addEventListener('click', async ()=>{
   const payload = {
     area: state.monthly.area,
     month: state.monthly.month,
-    visit_days: state.monthly.days,
+    visit_days: state.monthly.groups.length,
     groups: state.monthly.groups.map((g,i)=>({
       label: `訪店日${i+1}`,
       date: state.monthly.groupDates[i] || null,
