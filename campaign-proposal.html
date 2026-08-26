@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Noto Sans CJK JP", "Hiragino Sans", sans-serif;
+    color: #4a3b40;
+    margin: 0;
+    padding: 24px;
+    font-size: 14px;
+    line-height: 1.7;
+    background: #faf6f8;
+  }
+  .sheet {
+    max-width: 780px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px 32px;
+    box-shadow: 0 4px 20px rgba(180,120,150,0.12);
+  }
+
+  .header {
+    background: linear-gradient(135deg, #f7d9e3 0%, #f1c9dc 40%, #e6b8d6 100%);
+    border-radius: 14px;
+    padding: 22px 28px;
+    margin-bottom: 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::after {
+    content: "";
+    position: absolute;
+    right: -30px;
+    top: -30px;
+    width: 140px;
+    height: 140px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 50%;
+  }
+  .header .eyebrow {
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: #8a5468;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .header h1 {
+    font-size: 26px;
+    margin: 0 0 8px 0;
+    color: #6b3a52;
+    font-weight: 700;
+  }
+  .header .sub {
+    font-size: 13px;
+    color: #7c4f61;
+  }
+
+  .section {
+    margin-bottom: 24px;
+  }
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #a1567b;
+    border-bottom: 2px solid #f3c9dc;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .section-title .num {
+    background: #e88fb0;
+    color: #fff;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .lead-box {
+    background: #fdf3f7;
+    border-left: 4px solid #e88fb0;
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 14px;
+    color: #5c3f4a;
+  }
+
+  .cards {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .card {
+    flex: 1;
+    min-width: 260px;
+    background: #fffbfc;
+    border: 1px solid #f2d3e0;
+    border-radius: 12px;
+    padding: 18px 18px 16px 18px;
+  }
+  .card .badge {
+    display: inline-block;
+    background: #fce4ee;
+    color: #b05c85;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+  }
+  .card h3 {
+    font-size: 15px;
+    color: #6b3a52;
+    margin: 0 0 8px 0;
+  }
+  .card p {
+    font-size: 13px;
+    margin: 0 0 8px 0;
+    color: #5c4650;
+  }
+  .card ul {
+    margin: 8px 0 0 0;
+    padding-left: 18px;
+  }
+  .card ul li {
+    font-size: 13px;
+    margin-bottom: 5px;
+    color: #5c4650;
+  }
+
+  .point-tag {
+    display: inline-block;
+    background: #6b3a52;
+    color: #fff;
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 5px;
+    margin-top: 10px;
+  }
+
+  .flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .flow-step {
+    flex: 1;
+    min-width: 130px;
+    background: #fdf3f7;
+    border: 1px solid #f2cfe0;
+    border-radius: 10px;
+    padding: 12px 12px;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .flow-step .label {
+    font-size: 11px;
+    color: #b05c85;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .flow-step .text {
+    font-size: 13px;
+    color: #5c3f4a;
+    line-height: 1.5;
+  }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    color: #e88fb0;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  table.detail {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+  table.detail th {
+    background: #f7d9e3;
+    color: #6b3a52;
+    text-align: left;
+    padding: 9px 12px;
+    border: 1px solid #f2cfe0;
+    font-weight: 700;
+    width: 25%;
+    white-space: nowrap;
+  }
+  table.detail td {
+    padding: 9px 12px;
+    border: 1px solid #f2e0e9;
+    color: #5c4650;
+    background: #fffdfd;
+  }
+
+  .talk-box {
+    background: #fff8fa;
+    border: 1px dashed #e8a9c4;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 8px;
+  }
+  .talk-box .who {
+    font-size: 11px;
+    color: #b05c85;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .talk-box .line {
+    font-size: 13.5px;
+    color: #5c3f4a;
+    margin-bottom: 8px;
+  }
+  .talk-box .line:last-child { margin-bottom: 0; }
+
+  .effects {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .effect {
+    flex: 1;
+    min-width: 130px;
+    text-align: center;
+    background: #fdf3f7;
+    border-radius: 10px;
+    padding: 14px 10px;
+  }
+  .effect .icon {
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+  .effect .txt {
+    font-size: 12.5px;
+    color: #6b3a52;
+    font-weight: 700;
+  }
+
+  .footer-note {
+    font-size: 11px;
+    color: #a08a90;
+    text-align: right;
+    margin-top: 20px;
+  }
+
+  @media print {
+    body { background: #fff; padding: 0; }
+    .sheet { box-shadow: none; border-radius: 0; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+
+  <div class="header">
+    <div class="eyebrow">NICE NAIL 支援部　施策提案</div>
+    <h1>次々回来店促進キャンペーン</h1>
+    <div class="sub">その場の売上だけで終わらせない ― 次回来店・継続利用への接続施策</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="num">1</span>企画の狙い</div>
+    <div class="lead-box">
+      N³シリーズなどの物販は「その場で買ってもらう」ことがゴールになりがち。<br>
+      今回の施策は、購入をきっかけに<strong>次回来店・継続利用</strong>まで設計することで、店舗の再来率アップと客単価の底上げを狙う。
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="num">2</span>施策内容</div>
+    <div class="cards">
+      <div class="card">
+        <span class="badge">施策①</span>
+        <h3>次回来店クーポン発行</h3>
+        <p>対象品購入時に、次回来店時に使えるクーポンをその場で発行する。</p>
+        <ul>
+          <li>クーポン対象は<strong>N³商品ではなく</strong>フィルインやオプション1つなど、別メニューにする</li>
+          <li>物販の値引きループを避け、他メニューの体験機会を作る</li>
+          <li>お客様には「次も楽しみができる」感覚を持ってもらう</li>
+        </ul>
+        <span class="point-tag">狙い：客単価アップ＋他メニュー体験</span>
+      </div>
+      <div class="card">
+        <span class="badge">施策②</span>
+        <h3>使い切り応援トーク</h3>
+        <p>会計・お見送りのタイミングで購入品の残量を確認し、自然な形で次回提案につなげる。</p>
+        <ul>
+          <li>「そろそろ使い切りそうですね」など残量確認の一声</li>
+          <li>再来店のタイミングを見据えた声かけに発展させる</li>
+          <li>押し売り感を出さず、お客様想いの提案として伝える</li>
+        </ul>
+        <span class="point-tag">狙い：継続利用の動機づけ</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="num">3</span>お客様体験の流れ</div>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="label">STEP1</div>
+        <div class="text">対象品ご購入<br>（N³シリーズ等）</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="label">STEP2</div>
+        <div class="text">次回来店用<br>クーポンをお渡し</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="label">STEP3</div>
+        <div class="text">使用中、残量を<br>お伺いするタイミング</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="label">STEP4</div>
+        <div class="text">クーポン利用で<br>次回来店・再購入</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="num">4</span>クーポン設計（案）</div>
+    <table class="detail">
+      <tr><th>発行タイミング</th><td>対象品（N³シリーズ等）ご購入時、会計と同時にお渡し</td></tr>
+      <tr><th>クーポン内容</th><td>フィルインまたはオプション1つ無料／割引　※N³商品自体は対象外</td></tr>
+      <tr><th>利用条件</th><td>次回来店時、来店1回・1枚限りの利用</td></tr>
+      <tr><th>有効期限</th><td>発行日から◯ヶ月以内（要検討）</td></tr>
+      <tr><th>設計意図</th><td>物販割引の連鎖を避けつつ、他メニュー体験を通じた店舗全体のファン化を促進</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="num">5</span>使い切り応援トーク例</div>
+    <div class="talk-box">
+      <div class="who">スタッフ声かけ例</div>
+      <div class="line">「前回お渡しした〇〇、使い心地はいかがですか？」</div>
+      <div class="line">「そろそろ残量が少なくなってくる頃かなと思うんですけど、いかがですか？」</div>
+      <div class="line">「よろしければ次回ご来店の際に、クーポンも使いながらまたお手入れしませんか？」</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title"><span class="num">6</span>期待される効果</div>
+    <div class="effects">
+      <div class="effect">
+        <div class="icon">🔁</div>
+        <div class="txt">再来店率の向上</div>
+      </div>
+      <div class="effect">
+        <div class="icon">💅</div>
+        <div class="txt">他メニュー体験の促進</div>
+      </div>
+      <div class="effect">
+        <div class="icon">💬</div>
+        <div class="txt">自然な接客導線の定着</div>
+      </div>
+      <div class="effect">
+        <div class="icon">📈</div>
+        <div class="txt">客単価・LTVの底上げ</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">NICE NAIL 支援部</div>
+
+  </div>
+</body>
+</html>
