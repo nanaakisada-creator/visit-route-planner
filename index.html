@@ -460,13 +460,15 @@
     <div class="row">
       <div>
         <label>現在の店舗</label>
-        <select id="pStore"></select>
+        <input type="text" id="pStore" list="pStoreDatalist" placeholder="店舗名で検索...">
+        <datalist id="pStoreDatalist"></datalist>
       </div>
     </div>
     <div class="row" id="pDestinationRow" style="display:none;">
       <div>
         <label>異動先の店舗</label>
-        <select id="pDestinationStore"></select>
+        <input type="text" id="pDestinationStore" list="pDestinationStoreDatalist" placeholder="店舗名で検索...">
+        <datalist id="pDestinationStoreDatalist"></datalist>
       </div>
     </div>
     <div class="row">
@@ -1062,19 +1064,30 @@ function renderPersonnelList(){
   container.querySelectorAll('[data-pdel]').forEach(b=>b.addEventListener('click', ()=>deletePersonnelChange(b.dataset.pdel)));
 }
 
-function renderPersonnelStoreOptions(area, selectedId, selectId){
-  const sel = document.getElementById(selectId);
+function renderPersonnelStoreOptions(area, selectedId){
+  const datalist = document.getElementById('pStoreDatalist');
   const areaStores = stores.filter(s=>s.area===area).sort((a,b)=>a.name.localeCompare(b.name,'ja'));
-  sel.innerHTML = '<option value="">未設定</option>' + areaStores.map(s=>`<option value="${s.id}" ${s.id===selectedId?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
+  datalist.innerHTML = areaStores.map(s=>`<option value="${escapeHtml(s.name)}"></option>`).join('');
+  const input = document.getElementById('pStore');
+  const selected = selectedId ? stores.find(s=>s.id===selectedId) : null;
+  input.value = selected ? selected.name : '';
 }
 
 // 異動先は現在のエリアに関係なく、関西・九州どちらの店舗も選べるようにする
 function renderDestinationStoreOptions(selectedId){
-  const sel = document.getElementById('pDestinationStore');
-  const kansai = stores.filter(s=>s.area==='関西').sort((a,b)=>a.name.localeCompare(b.name,'ja'));
-  const kyushu = stores.filter(s=>s.area==='九州').sort((a,b)=>a.name.localeCompare(b.name,'ja'));
-  const optGroup = (label, list) => `<optgroup label="${label}">${list.map(s=>`<option value="${s.id}" ${s.id===selectedId?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}</optgroup>`;
-  sel.innerHTML = '<option value="">未設定</option>' + optGroup('関西', kansai) + optGroup('九州', kyushu);
+  const datalist = document.getElementById('pDestinationStoreDatalist');
+  const allStores = stores.slice().sort((a,b)=> a.area.localeCompare(b.area,'ja') || a.name.localeCompare(b.name,'ja'));
+  datalist.innerHTML = allStores.map(s=>`<option value="${escapeHtml(s.name)}"></option>`).join('');
+  const input = document.getElementById('pDestinationStore');
+  const selected = selectedId ? stores.find(s=>s.id===selectedId) : null;
+  input.value = selected ? selected.name : '';
+}
+
+// 店舗名（入力欄の文字列）から実際の店舗を探す。空欄なら未設定扱い
+function findStoreByTypedName(name){
+  const trimmed = (name||'').trim();
+  if(!trimmed) return null;
+  return stores.find(s=>s.name === trimmed) || null;
 }
 
 document.getElementById('addPersonnelBtn').addEventListener('click', ()=>openPersonnelModal(null));
@@ -1083,7 +1096,7 @@ document.getElementById('cancelPersonnelBtn').addEventListener('click', ()=>{
 });
 
 document.getElementById('pArea').addEventListener('change', ()=>{
-  renderPersonnelStoreOptions(document.getElementById('pArea').value, null, 'pStore');
+  renderPersonnelStoreOptions(document.getElementById('pArea').value, null);
   renderDestinationStoreOptions(null);
 });
 
@@ -1110,7 +1123,7 @@ function openPersonnelModal(id){
   if(typeChip) typeChip.classList.add('selected');
   updatePersonnelFormFields(type);
 
-  renderPersonnelStoreOptions(area, p ? p.store_id : null, 'pStore');
+  renderPersonnelStoreOptions(area, p ? p.store_id : null);
   renderDestinationStoreOptions(p ? p.destination_store_id : null);
 
   document.getElementById('personnelModalBg').classList.add('active');
@@ -1127,8 +1140,8 @@ document.getElementById('savePersonnelBtn').addEventListener('click', async ()=>
     staff_number: document.getElementById('pStaffNumber').value.trim() || null,
     area: document.getElementById('pArea').value,
     change_type: selectedType,
-    store_id: document.getElementById('pStore').value || null,
-    destination_store_id: selectedType === '異動' ? (document.getElementById('pDestinationStore').value || null) : null,
+    store_id: (findStoreByTypedName(document.getElementById('pStore').value) || {}).id || null,
+    destination_store_id: selectedType === '異動' ? ((findStoreByTypedName(document.getElementById('pDestinationStore').value) || {}).id || null) : null,
     change_date: document.getElementById('pDate').value || null,
     notes: document.getElementById('pNotes').value.trim(),
   };
@@ -1811,7 +1824,6 @@ function renderGroupResult(){
         <button class="icon-btn" data-drop-store="1" data-group="${gi}" data-store="${s.id}">🗑️</button>
       </div>`;
     }).join('') || '<div class="empty">店舗未割当</div>';
-    const addOptions = areaStores.filter(s=>!usedIds.has(s.id)).map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
     html += `<div class="card" style="background:#F6FBFD; margin-bottom:12px;">
       <div class="row">
         <div>
@@ -1828,10 +1840,7 @@ function renderGroupResult(){
       </div>
       ${rows}
       <div class="row" style="margin-top:8px;">
-        <select class="groupAddStoreSelect" data-group="${gi}" style="flex:2;">
-          <option value="">＋ 店舗を追加...</option>
-          ${addOptions}
-        </select>
+        <input type="text" class="groupAddStoreSelect" data-group="${gi}" list="groupAddStoreDatalist" placeholder="店舗名で検索して追加..." style="flex:2;">
         <button class="btn btn-outline btn-sm" data-add-store-group="${gi}">追加</button>
       </div>
       <button class="btn btn-outline btn-sm" style="margin-top:8px; width:100%;" data-remove-group="${gi}">この日を削除</button>
@@ -1839,6 +1848,8 @@ function renderGroupResult(){
   });
   if(lastStaff !== null) html += '</div>';
   html += `<button class="btn btn-outline" style="width:100%; margin-bottom:6px;" id="addGroupDayBtn">＋ 日を追加</button>`;
+  const addOptions = areaStores.filter(s=>!usedIds.has(s.id));
+  html += `<datalist id="groupAddStoreDatalist">${addOptions.map(s=>`<option value="${escapeHtml(s.name)}"></option>`).join('')}</datalist>`;
   container.innerHTML = html;
 
   container.querySelectorAll('.moveSelect').forEach(sel=>{
@@ -1870,11 +1881,10 @@ function renderGroupResult(){
   container.querySelectorAll('[data-add-store-group]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const gi = parseInt(btn.dataset.addStoreGroup);
-      const sel = container.querySelector(`.groupAddStoreSelect[data-group="${gi}"]`);
-      const sid = sel.value;
-      if(!sid) return;
-      const full = stores.find(x=>x.id===sid);
-      if(full) state.monthly.groups[gi].push(full);
+      const inp = container.querySelector(`.groupAddStoreSelect[data-group="${gi}"]`);
+      const full = findStoreByTypedName(inp.value);
+      if(!full){ toast('一致する店舗が見つかりません'); return; }
+      state.monthly.groups[gi].push(full);
       renderGroupResult();
     });
   });
@@ -2161,9 +2171,6 @@ function renderHistoryDetailBody(){
         </div>`;
       }).join('') || '<div class="empty">店舗未割当</div>';
 
-      const addOptions = areaStores.filter(s=>!g.stores.some(gs=>gs.id===s.id))
-        .map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-
       return `<div class="card" style="background:#F6FBFD; margin-bottom:10px;">
         <div class="row" style="margin-bottom:8px;">
           <div>
@@ -2180,10 +2187,7 @@ function renderHistoryDetailBody(){
         </div>
         ${rows}
         <div class="row" style="margin-top:8px;">
-          <select class="editAddStoreSelect" data-day="${oi}" style="flex:2;">
-            <option value="">＋ 店舗を追加...</option>
-            ${addOptions}
-          </select>
+          <input type="text" class="editAddStoreSelect" data-day="${oi}" list="historyAddStoreDatalist" placeholder="店舗名で検索して追加..." style="flex:2;">
           <button class="btn btn-outline btn-sm" data-add-store-day="${oi}">追加</button>
         </div>
         <button class="btn btn-outline btn-sm" style="margin-top:8px; width:100%;" data-remove-day="${oi}">この日を削除</button>
@@ -2199,6 +2203,7 @@ function renderHistoryDetailBody(){
   }).join('');
 
   html += `<button class="btn btn-outline" style="width:100%; margin-bottom:6px;" id="addPlanDayBtn">＋ 日を追加</button>`;
+  html += `<datalist id="historyAddStoreDatalist">${areaStores.map(s=>`<option value="${escapeHtml(s.name)}"></option>`).join('')}</datalist>`;
   detail.innerHTML = html;
 
   detail.querySelectorAll('.editDateInput').forEach(inp=>{
@@ -2230,11 +2235,10 @@ function renderHistoryDetailBody(){
   detail.querySelectorAll('[data-add-store-day]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const day = parseInt(btn.dataset.addStoreDay);
-      const sel = detail.querySelector(`.editAddStoreSelect[data-day="${day}"]`);
-      const sid = sel.value;
-      if(!sid) return;
-      const full = stores.find(x=>x.id===sid);
-      if(full && !plan.groups[day].stores.some(s=>s.id===sid)){
+      const inp = detail.querySelector(`.editAddStoreSelect[data-day="${day}"]`);
+      const full = findStoreByTypedName(inp.value);
+      if(!full){ toast('一致する店舗が見つかりません'); return; }
+      if(!plan.groups[day].stores.some(s=>s.id===full.id)){
         plan.groups[day].stores.push({ id: full.id, name: full.name, prefecture: full.prefecture });
       }
       renderHistoryDetailBody();
