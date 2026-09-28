@@ -178,6 +178,7 @@
     <button id="tabMonthlyBtn" class="active">月間プラン</button>
     <button id="tabReviewBtn">考査チェック</button>
     <button id="tabPersonnelBtn">退職・異動</button>
+    <button id="tabWorkflowBtn">業務フロー</button>
     <button id="tabStoreBtn">店舗管理</button>
   </nav>
 
@@ -336,6 +337,16 @@
     <button class="btn btn-mint" style="width:100%;" id="addPersonnelBtn">＋ 退職予定者・異動者を追加</button>
   </section>
 
+  <!-- 業務フロー -->
+  <section id="panelWorkflow" class="panel">
+    <div class="card">
+      <h2>支援部業務フロー</h2>
+      <p class="small-note" style="margin-bottom:8px;">いつでも確認できる業務フローの一覧です。</p>
+      <div id="workflowList"></div>
+    </div>
+    <button class="btn btn-mint" style="width:100%;" id="addWorkflowBtn">＋ 項目を追加</button>
+  </section>
+
   <!-- 店舗管理 -->
   <section id="panelStore" class="panel">
     <div class="card">
@@ -473,6 +484,30 @@
     <div class="modal-actions">
       <button class="btn btn-outline" id="cancelPersonnelBtn">キャンセル</button>
       <button class="btn btn-primary" id="savePersonnelBtn">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 業務フロー編集モーダル -->
+<div class="modal-bg" id="workflowModalBg">
+  <div class="modal">
+    <h2 id="workflowModalTitle">項目を追加</h2>
+    <input type="hidden" id="editWorkflowId">
+    <div class="row">
+      <div>
+        <label>タイトル（【　】の中身）</label>
+        <input type="text" id="wTitle" placeholder="例: シフト">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>内容（1行に1項目）</label>
+        <textarea id="wContent" rows="6" placeholder="10日までに希望休入力&#10;20日までにすべて入力"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="cancelWorkflowBtn">キャンセル</button>
+      <button class="btn btn-primary" id="saveWorkflowBtn">保存する</button>
     </div>
   </div>
 </div>
@@ -628,6 +663,16 @@ create table personnel_changes (
 alter table personnel_changes enable row level security;
 create policy "allow all" on personnel_changes for all using (true) with check (true);
 
+create table workflow_sections (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  content text[] not null default '{}',
+  sort_order int not null default 0,
+  created_at timestamptz default now()
+);
+alter table workflow_sections enable row level security;
+create policy "allow all" on workflow_sections for all using (true) with check (true);
+
 create table monthly_plans (
   id uuid primary key default gen_random_uuid(),
   area text not null,
@@ -751,19 +796,23 @@ document.getElementById('fMapUrl').addEventListener('input', (e)=>{
 document.getElementById('tabMonthlyBtn').addEventListener('click', ()=>switchTab('monthly'));
 document.getElementById('tabReviewBtn').addEventListener('click', ()=>switchTab('review'));
 document.getElementById('tabPersonnelBtn').addEventListener('click', ()=>switchTab('personnel'));
+document.getElementById('tabWorkflowBtn').addEventListener('click', ()=>switchTab('workflow'));
 document.getElementById('tabStoreBtn').addEventListener('click', ()=>switchTab('store'));
 function switchTab(tab){
   document.getElementById('panelMonthly').classList.toggle('active', tab==='monthly');
   document.getElementById('panelReview').classList.toggle('active', tab==='review');
   document.getElementById('panelPersonnel').classList.toggle('active', tab==='personnel');
+  document.getElementById('panelWorkflow').classList.toggle('active', tab==='workflow');
   document.getElementById('panelStore').classList.toggle('active', tab==='store');
   document.getElementById('tabMonthlyBtn').classList.toggle('active', tab==='monthly');
   document.getElementById('tabReviewBtn').classList.toggle('active', tab==='review');
   document.getElementById('tabPersonnelBtn').classList.toggle('active', tab==='personnel');
+  document.getElementById('tabWorkflowBtn').classList.toggle('active', tab==='workflow');
   document.getElementById('tabStoreBtn').classList.toggle('active', tab==='store');
   if(tab==='store'){ renderStoreList(); renderRouteList(); }
   if(tab==='review'){ loadReviewChecks().then(renderReviewList); }
   if(tab==='personnel'){ loadPersonnelChanges().then(renderPersonnelList); }
+  if(tab==='workflow'){ loadWorkflowSections().then(renderWorkflowList); }
 }
 
 // ---- 月間プラン: サブタブ ----
@@ -1100,6 +1149,79 @@ async function deletePersonnelChange(id){
   toast('削除しました');
   await loadPersonnelChanges();
   renderPersonnelList();
+}
+
+// ---- 業務フロータブ ----
+let workflowSections = [];
+
+async function loadWorkflowSections(){
+  if(!supabase){ workflowSections = []; return; }
+  const { data, error } = await supabase.from('workflow_sections').select('*').order('sort_order', { ascending: true });
+  if(error){ toast('読み込みエラー: ' + error.message); return; }
+  workflowSections = data || [];
+}
+
+function renderWorkflowList(){
+  const container = document.getElementById('workflowList');
+  if(workflowSections.length === 0){ container.innerHTML = '<div class="empty">まだ項目がありません</div>'; return; }
+  container.innerHTML = workflowSections.map(w=>{
+    const items = (w.content||[]).map(line=>`<div class="store-meta" style="margin-top:4px;">・${escapeHtml(line)}</div>`).join('');
+    return `<div class="card" style="background:#F6FBFD; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <h3 style="font-size:14.5px; color:var(--pink-deep); font-family:'Zen Maru Gothic', sans-serif;">【${escapeHtml(w.title)}】</h3>
+        <div style="display:flex; gap:4px; flex-shrink:0;">
+          <button class="icon-btn" data-wedit="${w.id}">✏️</button>
+          <button class="icon-btn" data-wdel="${w.id}">🗑️</button>
+        </div>
+      </div>
+      ${items}
+    </div>`;
+  }).join('');
+  container.querySelectorAll('[data-wedit]').forEach(b=>b.addEventListener('click', ()=>openWorkflowModal(b.dataset.wedit)));
+  container.querySelectorAll('[data-wdel]').forEach(b=>b.addEventListener('click', ()=>deleteWorkflowSection(b.dataset.wdel)));
+}
+
+document.getElementById('addWorkflowBtn').addEventListener('click', ()=>openWorkflowModal(null));
+document.getElementById('cancelWorkflowBtn').addEventListener('click', ()=>{
+  document.getElementById('workflowModalBg').classList.remove('active');
+});
+
+function openWorkflowModal(id){
+  document.getElementById('editWorkflowId').value = id || '';
+  const w = id ? workflowSections.find(x=>x.id===id) : null;
+  document.getElementById('workflowModalTitle').textContent = id ? '項目を編集' : '項目を追加';
+  document.getElementById('wTitle').value = w ? w.title : '';
+  document.getElementById('wContent').value = w ? (w.content||[]).join('\n') : '';
+  document.getElementById('workflowModalBg').classList.add('active');
+}
+
+document.getElementById('saveWorkflowBtn').addEventListener('click', async ()=>{
+  if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
+  const id = document.getElementById('editWorkflowId').value;
+  const title = document.getElementById('wTitle').value.trim();
+  if(!title){ toast('タイトルを入力してください'); return; }
+  const content = document.getElementById('wContent').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  let error;
+  if(id){
+    ({error} = await supabase.from('workflow_sections').update({ title, content }).eq('id', id));
+  } else {
+    const maxOrder = workflowSections.reduce((m,w)=>Math.max(m, w.sort_order||0), 0);
+    ({error} = await supabase.from('workflow_sections').insert({ title, content, sort_order: maxOrder + 1 }));
+  }
+  if(error){ toast('保存エラー: ' + error.message); return; }
+  toast('保存しました');
+  document.getElementById('workflowModalBg').classList.remove('active');
+  await loadWorkflowSections();
+  renderWorkflowList();
+});
+
+async function deleteWorkflowSection(id){
+  if(!confirm('この項目を削除しますか？')) return;
+  const { error } = await supabase.from('workflow_sections').delete().eq('id', id);
+  if(error){ toast('削除エラー: ' + error.message); return; }
+  toast('削除しました');
+  await loadWorkflowSections();
+  renderWorkflowList();
 }
 
 function renderStoreList(){
