@@ -681,6 +681,7 @@ create table monthly_plans (
   month text not null,
   visit_days int not null,
   groups jsonb not null,
+  version int not null default 1, -- 更新のたびにトリガーで+1（同時編集による上書き防止用）
   created_at timestamptz default now(),
   unique (area, month)
 );
@@ -1924,24 +1925,36 @@ document.getElementById('savePlanBtn').addEventListener('click', async ()=>{
       stores: g.map(s=>({ id: s.id, name: s.name, prefecture: s.prefecture, lat: s.lat, lng: s.lng })),
     })),
   };
+  // すでに同じ月・エリアのプランがある場合は、入力済みの日付などが消えるので確認する
+  const { data: existing } = await supabase.from('monthly_plans').select('id, groups').eq('area', payload.area).eq('month', payload.month).maybeSingle();
+  if(existing){
+    const datedCount = (existing.groups||[]).filter(g=>g.date).length;
+    const msg = `${payload.month}の${payload.area}プランはすでに保存されています。` +
+      (datedCount > 0 ? `\n（日付が入っている日が${datedCount}日分あり、上書きするとそれらは消えます）` : '') +
+      '\n\nそれでも上書きしますか？';
+    if(!confirm(msg)) return;
+  }
   const { error } = await supabase.from('monthly_plans').upsert(payload, { onConflict: 'area,month' });
   if(error){ toast('保存エラー: ' + error.message); return; }
-  toast(`${state.monthly.month}の${state.monthly.area}プランを保存しました（同じ月のプランがあれば上書きされます）`);
+  toast(`${state.monthly.month}の${state.monthly.area}プランを保存しました`);
   loadHistory();
 });
 
 // ================= 九州（手動作成） =================
 
 let kyushuCurrentPlanId = null;
+let kyushuCurrentVersion = null;
 
 async function loadKyushuMonthPlan(month){
   kyushuCurrentPlanId = null;
+  kyushuCurrentVersion = null;
   state.kyushu.days = [];
   if(supabase && month){
     const { data, error } = await supabase.from('monthly_plans').select('*').eq('area','九州').eq('month', month).maybeSingle();
     if(error){ toast('読み込みエラー: ' + error.message); }
     if(data){
       kyushuCurrentPlanId = data.id;
+      kyushuCurrentVersion = data.version;
       state.kyushu.days = (data.groups||[]).map(g=>({
         date: g.date || '',
         staff: g.staff || '',
@@ -2031,8 +2044,28 @@ document.getElementById('saveKyushuPlanBtn').addEventListener('click', async ()=
   }));
 
   const payload = { area: '九州', month, visit_days: groups.length, groups };
-  const { error } = await supabase.from('monthly_plans').upsert(payload, { onConflict: 'area,month' });
-  if(error){ toast('保存エラー: ' + error.message); return; }
+
+  if(kyushuCurrentPlanId){
+    // 読み込んだ時点から他の人が更新していたら、上書きせずに最新を読み込み直す
+    const { data, error } = await supabase.from('monthly_plans').update(payload)
+      .eq('id', kyushuCurrentPlanId).eq('version', kyushuCurrentVersion).select('id, version');
+    if(error){ toast('保存エラー: ' + error.message); return; }
+    if(!data || data.length === 0){
+      alert('他の人が先にこの月の九州プランを更新していたため、保存しませんでした。\n最新の内容を読み込み直します。もう一度編集してください。');
+      await loadKyushuMonthPlan(month);
+      return;
+    }
+    kyushuCurrentVersion = data[0].version;
+  } else {
+    const { data, error } = await supabase.from('monthly_plans').insert(payload).select('id, version');
+    if(error){
+      toast('保存エラー: すでにこの月のプランが保存されている可能性があります。最新を読み込み直します');
+      await loadKyushuMonthPlan(month);
+      return;
+    }
+    kyushuCurrentPlanId = data[0].id;
+    kyushuCurrentVersion = data[0].version;
+  }
   toast(`${month}の九州プランを保存しました`);
   loadHistory();
 });
@@ -2082,8 +2115,18 @@ function circledNum(n){
 let currentDetailPlan = null;
 let historyEditMode = false;
 
-function showHistoryDetail(id){
-  const plan = monthlyPlans.find(p=>p.id===id);
+// 開いている間に他の人が更新していることがあるので、表示・編集の前に最新の1件を取り直す
+async function refreshPlanFromDb(id){
+  if(!supabase) return monthlyPlans.find(p=>p.id===id);
+  const { data, error } = await supabase.from('monthly_plans').select('*').eq('id', id).maybeSingle();
+  if(error || !data) return monthlyPlans.find(p=>p.id===id);
+  const idx = monthlyPlans.findIndex(p=>p.id===id);
+  if(idx >= 0) monthlyPlans[idx] = data; else monthlyPlans.push(data);
+  return data;
+}
+
+async function showHistoryDetail(id){
+  const plan = await refreshPlanFromDb(id);
   if(!plan) return;
   currentDetailPlan = plan;
   historyEditMode = false;
@@ -2093,7 +2136,10 @@ function showHistoryDetail(id){
   document.getElementById('deletePlanBtn').dataset.id = id;
 }
 
-document.getElementById('toggleEditModeBtn').addEventListener('click', ()=>{
+document.getElementById('toggleEditModeBtn').addEventListener('click', async ()=>{
+  if(!currentDetailPlan) return;
+  // 編集を始める時（または表示に戻る時）は、最新の内容を読み直してから切り替える
+  currentDetailPlan = await refreshPlanFromDb(currentDetailPlan.id);
   historyEditMode = !historyEditMode;
   renderHistoryDetailBody();
 });
@@ -2266,8 +2312,18 @@ document.getElementById('saveHistoryChangesBtn').addEventListener('click', async
   if(!supabase){ toast('Supabase未設定のため保存できません'); return; }
   const plan = currentDetailPlan;
   if(!plan) return;
-  const { error } = await supabase.from('monthly_plans').update({ groups: plan.groups, visit_days: plan.groups.length }).eq('id', plan.id);
+  // 編集を始めた時点から他の人が更新していたら、上書きせずに最新を読み込み直す
+  const { data: saved, error } = await supabase.from('monthly_plans')
+    .update({ groups: plan.groups, visit_days: plan.groups.length })
+    .eq('id', plan.id).eq('version', plan.version).select('id, version');
   if(error){ toast('保存エラー: ' + error.message); return; }
+  if(!saved || saved.length === 0){
+    alert('他の人が先にこのプランを更新していたため、保存しませんでした（他の人の入力を消さないためです）。\n最新の内容を読み込み直します。お手数ですが、もう一度編集してください。');
+    currentDetailPlan = await refreshPlanFromDb(plan.id);
+    renderHistoryDetailBody();
+    return;
+  }
+  plan.version = saved[0].version;
 
   // 日付が入っている店舗は、最終訪店日も（より新しい方に）同期する
   for(const g of plan.groups){
